@@ -108,24 +108,25 @@ def linkage_obitos_covid(vacineja_df, obitos_covid_df, obitos_cartorios_df):
     # ----> Columns for each linkage.
     col_linkage1 = ["cpf(COVID)", "numerodo", "ORDEM(OBITO COVID)"]
     col_linkage2 = ["cpf(COVID)", "NOMENASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
-    #col_linkage3 = ["NOMENOMEMAECHAVE", "numerodo"]
-    col_linkage4 = ["cpf(COVID)", "NOMEMAENASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
+    col_linkage3 = ["NOMENOMEMAECHAVE", "numerodo", "ORDEM(OBITO COVID)"]
+    #col_linkage4 = ["cpf(COVID)", "NOMEMAENASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
     col_linkage5 = ["cpf(COVID)", "NOMEHASHNASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
-    col_linkage6 = ["cpf(COVID)", "NOMEMAEHASHNASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
+    #col_linkage6 = ["cpf(COVID)", "NOMEMAEHASHNASCIMENTOCHAVE", "numerodo", "ORDEM(OBITO COVID)"]
 
     linkage1 = obitos_covid_df[col_linkage1].dropna(subset=["cpf(COVID)"], axis=0).merge(vacineja_df.add_suffix("(VACINEJA)")["cpf(VACINEJA)"], left_on="cpf(COVID)", right_on="cpf(VACINEJA)", how="left").dropna(subset=["cpf(VACINEJA)"], axis=0)
     linkage2 = obitos_covid_df[col_linkage2].dropna(subset=["NOMENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENASCIMENTOCHAVE"]], on="NOMENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    #linkage3 = obitos_covid_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    linkage4 = obitos_covid_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    linkage3 = obitos_covid_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #linkage4 = obitos_covid_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
     linkage5 = obitos_covid_df[col_linkage5].dropna(subset=["NOMEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEHASHNASCIMENTOCHAVE"]], on="NOMEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    linkage6 = obitos_covid_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #linkage6 = obitos_covid_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
 
     do_to_vacinejacpf = defaultdict(lambda: np.nan)
     do_to_vacinejacpf.update(zip(linkage1["ORDEM(OBITO COVID)"], linkage1["cpf(VACINEJA)"]))
     do_to_vacinejacpf.update(zip(linkage2["ORDEM(OBITO COVID)"], linkage2["cpf"]))
-    do_to_vacinejacpf.update(zip(linkage4["ORDEM(OBITO COVID)"], linkage4["cpf"]))
+    do_to_vacinejacpf.update(zip(linkage3["ORDEM(OBITO COVID)"], linkage3["cpf"]))
+    #do_to_vacinejacpf.update(zip(linkage4["ORDEM(OBITO COVID)"], linkage4["cpf"]))
     do_to_vacinejacpf.update(zip(linkage5["ORDEM(OBITO COVID)"], linkage5["cpf"]))
-    do_to_vacinejacpf.update(zip(linkage6["ORDEM(OBITO COVID)"], linkage6["cpf"]))
+    #do_to_vacinejacpf.update(zip(linkage6["ORDEM(OBITO COVID)"], linkage6["cpf"]))
     obitos_covid_df["cpf(VACINEJA)"] = obitos_covid_df["ORDEM(OBITO COVID)"].apply(lambda x: do_to_vacinejacpf[x])
     obitos_covid_df = obitos_covid_df[["cpf(COVID)", "numerodo", "ORDEM(OBITO COVID)", "cpf(VACINEJA)"]]
     return obitos_covid_df
@@ -148,25 +149,25 @@ def linkage_obito_cartorios(vacineja_df, obitos_covid_df, obitos_cartorios_df):
     # ----> Columns for each linkage.
     col_linkage1 = ["cpf(CARTORIOS)"]
     col_linkage2 = ["NOMENASCIMENTOCHAVE", "cpf(CARTORIOS)"]
-    #col_linkage3 = ["NOMENOMEMAECHAVE", "cpf(CARTORIOS)"]
-    col_linkage4 = ["NOMEMAENASCIMENTOCHAVE", "cpf(CARTORIOS)"]
+    col_linkage3 = ["NOMENOMEMAECHAVE", "cpf(CARTORIOS)"]
+    #col_linkage4 = ["NOMEMAENASCIMENTOCHAVE", "cpf(CARTORIOS)"]
     col_linkage5 = ["NOMEHASHNASCIMENTOCHAVE", "cpf(CARTORIOS)"]
-    col_linkage6 = ["NOMEMAEHASHNASCIMENTOCHAVE", "cpf(CARTORIOS)"]
+    #col_linkage6 = ["NOMEMAEHASHNASCIMENTOCHAVE", "cpf(CARTORIOS)"]
 
     linkage1 = obitos_cartorios_df[col_linkage1].dropna(subset=["cpf(CARTORIOS)"], axis=0).merge(vacineja_df.add_suffix("(VACINEJA)")["cpf(VACINEJA)"], left_on="cpf(CARTORIOS)", right_on="cpf(VACINEJA)", how="left").dropna(subset=["cpf(VACINEJA)"], axis=0)
     linkage2 = obitos_cartorios_df[col_linkage2].dropna(subset=["NOMENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENASCIMENTOCHAVE"]], on="NOMENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    #linkage3 = obitos_cartorios_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    linkage4 = obitos_cartorios_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    linkage3 = obitos_cartorios_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #linkage4 = obitos_cartorios_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
     linkage5 = obitos_cartorios_df[col_linkage5].dropna(subset=["NOMEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEHASHNASCIMENTOCHAVE"]], on="NOMEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-    linkage6 = obitos_cartorios_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #linkage6 = obitos_cartorios_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
 
     cpf_to_vacinejacpf = defaultdict(lambda: np.nan)
     cpf_to_vacinejacpf.update(zip(linkage1["cpf(CARTORIOS)"], linkage1["cpf(VACINEJA)"]))
     cpf_to_vacinejacpf.update(zip(linkage2["cpf(CARTORIOS)"], linkage2["cpf"]))
-    #cpf_to_vacinejacpf.update(zip(linkage3["cpf(CARTORIOS)"], linkage3["cpf"]))
-    cpf_to_vacinejacpf.update(zip(linkage4["cpf(CARTORIOS)"], linkage4["cpf"]))
+    cpf_to_vacinejacpf.update(zip(linkage3["cpf(CARTORIOS)"], linkage3["cpf"]))
+    #cpf_to_vacinejacpf.update(zip(linkage4["cpf(CARTORIOS)"], linkage4["cpf"]))
     cpf_to_vacinejacpf.update(zip(linkage5["cpf(CARTORIOS)"], linkage5["cpf"]))
-    cpf_to_vacinejacpf.update(zip(linkage6["cpf(CARTORIOS)"], linkage6["cpf"]))
+    #cpf_to_vacinejacpf.update(zip(linkage6["cpf(CARTORIOS)"], linkage6["cpf"]))
     obitos_cartorios_df["cpf(VACINEJA)"] = obitos_cartorios_df["cpf(CARTORIOS)"].apply(lambda x: cpf_to_vacinejacpf[x])
     obitos_cartorios_df = obitos_cartorios_df[["cpf(CARTORIOS)", "cpf(VACINEJA)"]]
 

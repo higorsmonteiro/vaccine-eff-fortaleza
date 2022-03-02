@@ -33,8 +33,8 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
         }
 
     for j in tqdm(range(df_pop.shape[0])):
-        cpf = df_pop["cpf"].iat[j]
-        sex, age = df_pop["sexo"].iat[j], df_pop["idade"].iat[j]
+        cpf = df_pop["CPF"].iat[j]
+        sex, age = df_pop["SEXO"].iat[j], df_pop["IDADE"].iat[j]
 
         # Different outcomes' dates
         dt_d1 = df_pop[col_names["D1"]].iat[j]
@@ -44,13 +44,13 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
 
         control_reservoir[(age,sex)].append(cpf)
         if not pd.isna(dt_d1):
-            control_dates["D1"][cpf] = dt_d1.date()
+            control_dates["D1"][cpf] = dt_d1
         if not pd.isna(dt_d2):
-            control_dates["D2"][cpf] = dt_d2.date()
+            control_dates["D2"][cpf] = dt_d2
         if not pd.isna(dt_death):
-            control_dates["DEATH COVID"][cpf] = dt_death.date()
+            control_dates["DEATH COVID"][cpf] = dt_death
         if not pd.isna(dt_death_general):
-            control_dates["DEATH GENERAL"][cpf] = dt_death_general.date()
+            control_dates["DEATH GENERAL"][cpf] = dt_death_general
 
 def rearrange_controls(control_reservoir, seed):
     '''
@@ -104,12 +104,12 @@ def perform_matching(datelst, df_vac, control_reservoir, control_used, control_d
     matched = defaultdict(lambda:False)
     for current_date in tqdm(datelst):
         # Select all people who was vaccinated at the current date
-        df_vac["compare_date"] = df_vac[col_names["D1"]].apply(lambda x: "TRUE" if x.date()==current_date else "FALSE")
-        current_vaccinated = df_vac[df_vac["compare_date"]=="TRUE"]
+        df_vac["compare_date"] = df_vac[col_names["D1"]].apply(lambda x: True if x==current_date else False)
+        current_vaccinated = df_vac[df_vac["compare_date"]==True]
         
-        cpf_list = current_vaccinated["cpf"].tolist()
-        age_list = current_vaccinated["idade"].tolist()
-        sex_list = current_vaccinated["sexo"].tolist()
+        cpf_list = current_vaccinated["CPF"].tolist()
+        age_list = current_vaccinated["IDADE"].tolist()
+        sex_list = current_vaccinated["SEXO"].tolist()
 
         # For each person vaccinated at the current date, check if there is a control for he/she.
         for j in range(0, len(cpf_list)):
@@ -149,7 +149,7 @@ def get_events(df_pop, pareados, matched, col_names):
     data_d1 = defaultdict(lambda:np.nan)
     data_d2 = defaultdict(lambda:np.nan)
     for j in range(df_pop.shape[0]):
-        cpf = df_pop["cpf"].iat[j]
+        cpf = df_pop["CPF"].iat[j]
         d1_dt = df_pop[col_names["D1"]].iat[j]
         d2_dt = df_pop[col_names["D2"]].iat[j]
         obito = df_pop[col_names["OBITO COVID"]].iat[j]
@@ -189,7 +189,7 @@ def get_events(df_pop, pareados, matched, col_names):
     
     print("Incluindo não pareados ...")
     for j in tqdm(range(df_pop.shape[0])):
-        cpf = df_pop["cpf"].iat[j]
+        cpf = df_pop["CPF"].iat[j]
         if matched[cpf]==False:
             datas["CPF"] += [cpf]
             datas["DATA D1"] += [data_d1[cpf]]

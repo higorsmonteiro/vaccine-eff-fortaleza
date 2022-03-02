@@ -3,10 +3,13 @@
     input of the matching process.
 '''
 import os
-import json
 import numpy as np
 import pandas as pd
+import datetime as dt
 from collections import defaultdict
+from dateutil.relativedelta import relativedelta
+
+import lib.schema_aux as aux
 
 class DefineSchema:
     def __init__(self, base_folder):
@@ -18,7 +21,11 @@ class DefineSchema:
 
     def load_processed_data(self, folder=os.path.join("PARQUET_TRANSFORMED")):
         '''
-            Description.
+            Load all processed parquet files generated from the previous processing step of the pipeline.
+
+            Args:
+                folder:
+                    String.Path. Complement folder for 'self.base_folder' to locate the processed parquet files.
         '''
         self.vacineja_df = pd.read_parquet(os.path.join(self.base_folder, folder, "VACINEJA.parquet"))
         self.vacinados_df = pd.read_parquet(os.path.join(self.base_folder, folder, "VACINADOS.parquet"))
@@ -29,7 +36,7 @@ class DefineSchema:
     
     def load_linked_data(self, folder=os.path.join("output", "data", "LINKAGE")):
         '''
-            Description.
+            Load all linkage parquet files to merge with the final data.
         '''
         self.vacineja_vacinados_df = pd.read_parquet(os.path.join(folder, "VACINEJA_VACINADOS.parquet"))
         self.vacineja_tests_df = pd.read_parquet(os.path.join(folder, "VACINEJA_INTEGRASUS.parquet"))
@@ -65,13 +72,13 @@ class DefineSchema:
         self.vacineja_df["primary key LINKAGE SIVEP"] = self.vacineja_df["cpf"].apply(lambda x: to_sivep[x])
         
         self.tests_df = self.tests_df.set_index("id")
-        self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: select_indexes(self.tests_df, x) if type(x)!=float else "NAO")
+        self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: aux.select_indexes(self.tests_df, x) if type(x)!=float else "NAO")
         self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_coleta[cur_id] for cur_id in x] if type(x)!=float else np.nan)
         self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_solicitacao[cur_id] for cur_id in x] if type(x)!=float else np.nan)
         
-    def create_final_schema(self, return_=True):
+    def create_final_schema(self, cohort=(dt.datetime(2021, 1, 21), dt.datetime(2021, 8, 31)), return_=True):
         '''
-            Description.
+            Create final schema containing main information from the other databases and derived info.
         '''
         col_vacinados = ["cpf(VACINADOS)", "vacina(VACINADOS)", "data D1(VACINADOS)", "data D2(VACINADOS)", "data D3(VACINADOS)", 
                          "data D4(VACINADOS)"]
@@ -89,11 +96,14 @@ class DefineSchema:
         agg_sivep = self.sivep_df[col_sivep].astype(str).groupby("PRIMARY_KEY").agg(";".join).reset_index()
         self.vacineja_df = self.vacineja_df.merge(agg_sivep.dropna(subset=["PRIMARY_KEY"], axis=0), left_on="primary key LINKAGE SIVEP",
                                                                               right_on="PRIMARY_KEY", how="left").drop("PRIMARY_KEY", axis=1)
+        
         f = lambda x: [pd.to_datetime(xx) for xx in x.split(";")] if pd.notna(x) else np.nan
         self.vacineja_df["DT_NOTIFIC"] = self.vacineja_df["DT_NOTIFIC"].apply(f)
         self.vacineja_df["DT_INTERNA"] = self.vacineja_df["DT_INTERNA"].apply(f)
         self.vacineja_df["DT_EVOLUCA"] = self.vacineja_df["DT_EVOLUCA"].apply(f)
         self.vacineja_df["EVOLUCAO"] = self.vacineja_df["EVOLUCAO"].apply(lambda x: x.split(";") if pd.notna(x) else np.nan)
+        self.vacineja_df["DT_INTERNA"] = self.vacineja_df["DT_INTERNA"].apply(lambda x: x if not np.all(pd.isna(x)) else np.nan)
+        self.vacineja_df["DT_NOTIFIC"] = self.vacineja_df["DT_NOTIFIC"].apply(lambda x: x if not np.all(pd.isna(x)) else np.nan)
         
         # --> Verify inconsistencies in tests dates
         col_tests = ["POSITIVOS COLETA DATA", "POSITIVOS SOLICITACAO DATA", "data_obito(OBITO COVID)"]
@@ -102,39 +112,49 @@ class DefineSchema:
         f = lambda x: np.any([date_>=x[col_tests[2]] for date_ in  x[col_tests[1]] if not pd.isna(date_)]) if np.any(pd.notna(x[col_tests[1]])) else False
         self.vacineja_df["SOLICITACAO APOS OBITO"] = self.vacineja_df[col_tests].apply(f, axis=1)
 
-        #self.vacineja_df = self.vacineja_df.drop(["ordem LINKAGE OBITO COVID", "id LINKAGE INTEGRASUS", "cpf LINKAGE CARTORIOS", "cpf LINKAGE VACINADOS", "created_at"], axis=1)
         self.vacineja_df = self.vacineja_df.drop(["created_at"], axis=1)
         self.vacineja_df = self.vacineja_df.rename({"nome": "NOME", "nome_mae": "NOME MAE", "cpf": "CPF", "cns": "CNS", "data_nascimento": "DATA NASCIMENTO",
                                                     "cep": "CEP", "bairro": "BAIRRO", "sexo": "SEXO", "situacao": "SITUACAO VACINEJA",
                                                     "vacina(VACINADOS)": "VACINA APLICADA", "data D1(VACINADOS)": "DATA D1", 
                                                     "data D2(VACINADOS)": "DATA D2", "data D3(VACINADOS)": "DATA D3", "data D4(VACINADOS)": "DATA D4",
-                                                    "numerodo": "NUMERODO", "data_pri_sintomas_nova(OBITO COVID)": "DATA PRI SINTOMAS (COVID)", 
+                                                    "numerodo": "NUMERODO(OBITO COVID)", "data_pri_sintomas_nova(OBITO COVID)": "DATA PRI SINTOMAS(OBITO COVID)", 
                                                     "data_obito(OBITO COVID)": "DATA OBITO", "data falecimento(CARTORIOS)": "DATA FALECIMENTO(CARTORIOS)",
                                                     "do(CARTORIOS)": "NUMERODO(CARTORIOS)", "DT_NOTIFIC": "DATA NOTIFICACAO SIVEP", 
                                                     "DT_INTERNA": "DATA INTERNACAO", "DT_EVOLUCA": "DATA EVOLUCAO"}, axis=1) 
+
+        # --> Find inconsistencies between death date and vaccine dates.
+        cols = {
+            "OBITO": "DATA OBITO",
+            "D1": "DATA D1",
+            "D2": "DATA D2",
+            "D3": "DATA D3",
+            "D4": "DATA D4",
+        }
+        self.vacineja_df["OBITO INCONSISTENCIA COVID"] = self.vacineja_df[list(cols.values())].apply(lambda x: aux.compare_vaccine_death(x, cols), axis=1)
+        cols = {
+            "OBITO": "DATA FALECIMENTO(CARTORIOS)",
+            "D1": "DATA D1",
+            "D2": "DATA D2",
+            "D3": "DATA D3",
+            "D4": "DATA D4",
+        }
+        self.vacineja_df["OBITO INCONSISTENCIA CARTORIOS"] = self.vacineja_df[list(cols.values())].apply(lambda x: aux.compare_vaccine_death(x, cols), axis=1)
         
+        # Save the dates of positive Covid-19 tests based on sampling date and solicitation date.
+        self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["POSITIVOS COLETA DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+        self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["POSITIVOS SOLICITACAO DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+
+        # Define vaccination status during cohort.
+        new_col_cohort = "STATUS VACINACAO DURANTE COORTE"
+        subs = ["DATA D1", "DATA D2", "DATA D3", "DATA D4"]
+        self.vacineja_df[new_col_cohort] = self.vacineja_df[subs].apply(lambda x: aux.vaccination_during_cohort(x, cohort[0], cohort[1]), axis=1)
+        # Define vaccination status considering whole period of the database.
+        new_col = "STATUS VACINACAO"
+        subs = ["DATA D1", "DATA D2", "DATA D3", "DATA D4"]
+        self.vacineja_df[new_col] = self.vacineja_df[subs].apply(lambda x: aux.vaccination_status(x), axis=1)
+
+        # Calculate age of the individuals based on the end of the cohort.
+        self.vacineja_df["IDADE"] = self.vacineja_df["DATA NASCIMENTO"].apply(lambda x: relativedelta(cohort[1], x).years)
+
         if return_:
             return self.vacineja_df
-    
-# --> AUX
-def select_indexes(integra_df, indexes):
-    '''
-    
-    '''
-    selected = integra_df.loc[indexes]
-    if np.isin(["SIM"], selected["INFO COORTE SINTOMAS"].values)[0]:
-        return "SIM"
-    if np.isin(["SIM"], selected["INFO COORTE SOLICITACAO"].values)[0]:
-        return "SIM"
-    if np.isin(["SIM"], selected["INFO COORTE COLETA"].values)[0]:
-        return "SIM"
-    return "NAO"
-
-def get_dates(integra_df, indexes, col="data_coleta_exame"):
-    '''
-        Description.
-    '''
-    selected = integra_df.loc[indexes]
-    return json.dumps(dict(zip(selected[col].astype(str).values, selected["resultado_final_exame"].values)))
-
-

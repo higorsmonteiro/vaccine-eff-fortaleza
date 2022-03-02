@@ -92,7 +92,7 @@ def transform_vacinados(df):
 
     return df
 
-def transform_integrasus(df, init_cohort=None):
+def transform_integrasus(df, init_cohort):
     '''
     
     '''
@@ -128,9 +128,9 @@ def transform_integrasus(df, init_cohort=None):
     df["NOMEMAEHASHNASCIMENTOCHAVE"] = df["nome mae hashcode"] + df["data_nascimento"].astype(str)
     
     # To verify if symptoms and testing were done before cohort (check whether test is positive later).
-    df["SINTOMAS ANTES COORTE"] = df["data_inicio_sintomas_nova"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
-    df["SOLICITACAO ANTES COORTE"] = df["data_solicitacao_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
-    df["COLETA ANTES COORTE"] = df["data_coleta_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
+    df["SINTOMAS ANTES COORTE"] = df["data_inicio_sintomas_nova"].apply(lambda x: "SIM" if pd.notna(x) and x<init_cohort else "NAO")
+    df["SOLICITACAO ANTES COORTE"] = df["data_solicitacao_exame"].apply(lambda x: "SIM" if pd.notna(x) and x<init_cohort else "NAO")
+    df["COLETA ANTES COORTE"] = df["data_coleta_exame"].apply(lambda x: "SIM" if pd.notna(x) and x<init_cohort else "NAO")
     
     # Now classify each individual as YES or NO depending if the person has positive test before cohort or not.
     pos_antes_cohort_sint, pos_antes_cohort_sol, pos_antes_cohort_col = defaultdict(lambda:"NAO"), defaultdict(lambda: "NAO"), defaultdict(lambda: "NAO")
@@ -160,6 +160,7 @@ def transform_integrasus(df, init_cohort=None):
         if np.isin(["SIM"], sub_df["INFO COORTE COLETA"]):
             pos_antes_cohort_col[pkey] = "SIM"
         
+    # ====> ERRO - OVERWRITING SOME "SIM"
     df["INFO COORTE SINTOMAS"] = df["PRIMARY_KEY_PERSON"].apply(lambda x: pos_antes_cohort_sint[x])
     df["INFO COORTE SOLICITACAO"] = df["PRIMARY_KEY_PERSON"].apply(lambda x: pos_antes_cohort_sol[x])
     df["INFO COORTE COLETA"] = df["PRIMARY_KEY_PERSON"].apply(lambda x: pos_antes_cohort_col[x])
