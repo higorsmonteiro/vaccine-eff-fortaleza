@@ -63,6 +63,6 @@ def setup_scheme(df_vac, df_nonvac, datelst, seed):
     pareados, matched = utils.perform_matching(datelst, df_vac, control_reservoir, control_used, control_dates, col_names)
     
     events_df = utils.get_events(df_pop, pareados, matched, col_names)
-    df_pop["PAREADO"] = df_pop["cpf"].apply(lambda x: True if matched[x] else False)
+    df_pop["PAREADO"] = df_pop["CPF"].apply(lambda x: True if matched[x] else False)
     return pareados, events_df, matched
 
