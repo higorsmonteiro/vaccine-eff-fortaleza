@@ -68,7 +68,7 @@ class VaccineEffectiveness:
             elif person_info["TIPO"] == "CASO":
                 self.casos_hash[person_info["CPF"]] = person_info
 
-        # Calculate the size of the intervals for each pair.3
+        # Calculate the size of the intervals for each pair
         self.intervals = []
         for key in self.casos_hash.keys():
             caso_hash = self.casos_hash[key]

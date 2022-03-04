@@ -20,12 +20,12 @@ def select_indexes(integra_df, indexes):
     '''
     selected = integra_df.loc[indexes]
     if np.isin(["SIM"], selected["INFO COORTE SINTOMAS"].values)[0]:
-        return "SIM"
+        return True
     if np.isin(["SIM"], selected["INFO COORTE SOLICITACAO"].values)[0]:
-        return "SIM"
+        return True
     if np.isin(["SIM"], selected["INFO COORTE COLETA"].values)[0]:
-        return "SIM"
-    return "NAO"
+        return True
+    return False
 
 def compare_vaccine_death(x, 
                           cols = {

@@ -29,7 +29,8 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
             "D1": "data D1(VACINADOS)",
             "D2": "data D2(VACINADOS)",
             "OBITO COVID": "data_obito(OBITO COVID)",
-            "OBITO GERAL": "data falecimento(CARTORIOS)"
+            "OBITO GERAL": "data falecimento(CARTORIOS)",
+            "HOSPITALIZACAO COVID": "DATA HOSPITALIZACAO",
         }
 
     for j in tqdm(range(df_pop.shape[0])):
@@ -41,16 +42,19 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
         dt_d2 = df_pop[col_names["D2"]].iat[j]
         dt_death = df_pop[col_names["OBITO COVID"]].iat[j]
         dt_death_general = df_pop[col_names["OBITO GERAL"]].iat[j]
+        dt_hosp_covid = df_pop[col_names["HOSPITALIZACAO COVID"]].iat[j]
 
         control_reservoir[(age,sex)].append(cpf)
-        if not pd.isna(dt_d1):
+        if pd.notna(dt_d1):
             control_dates["D1"][cpf] = dt_d1
-        if not pd.isna(dt_d2):
+        if pd.notna(dt_d2):
             control_dates["D2"][cpf] = dt_d2
-        if not pd.isna(dt_death):
+        if pd.notna(dt_death):
             control_dates["DEATH COVID"][cpf] = dt_death
-        if not pd.isna(dt_death_general):
+        if pd.notna(dt_death_general):
             control_dates["DEATH GENERAL"][cpf] = dt_death_general
+        if pd.notna(dt_hosp_covid):
+            control_dates["HOSPITALIZATION COVID"][cpf] = dt_hosp_covid
 
 def rearrange_controls(control_reservoir, seed):
     '''

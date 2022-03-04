@@ -72,7 +72,7 @@ class DefineSchema:
         self.vacineja_df["primary key LINKAGE SIVEP"] = self.vacineja_df["cpf"].apply(lambda x: to_sivep[x])
         
         self.tests_df = self.tests_df.set_index("id")
-        self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: aux.select_indexes(self.tests_df, x) if type(x)!=float else "NAO")
+        self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: aux.select_indexes(self.tests_df, x) if type(x)!=float else False)
         self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_coleta[cur_id] for cur_id in x] if type(x)!=float else np.nan)
         self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_solicitacao[cur_id] for cur_id in x] if type(x)!=float else np.nan)
         
@@ -155,6 +155,18 @@ class DefineSchema:
 
         # Calculate age of the individuals based on the end of the cohort.
         self.vacineja_df["IDADE"] = self.vacineja_df["DATA NASCIMENTO"].apply(lambda x: relativedelta(cohort[1], x).years)
+        self.vacineja_df["VACINA APLICADA"] = self.vacineja_df["VACINA APLICADA"].fillna("NAO VACINADO")
+
+        # Define hospitalization date
+        col = ["DATA NOTIFICACAO SIVEP", "DATA INTERNACAO"]
+        self.vacineja_df["DATA HOSPITALIZACAO"] = self.vacineja_df[col].apply(lambda x: x[col[1]] if np.any(pd.notna(x[col[1]])) else (x[col[0]] if np.any(pd.notna(x[col[0]])) else np.nan), axis=1)
+        
+        # Death before cohort
+        subcol = ["DATA OBITO", "DATA FALECIMENTO(CARTORIOS)"]
+        self.vacineja_df["OBITO ANTES COORTE"] = self.vacineja_df[subcol].apply(lambda x: True if pd.notna(x[subcol[0]]) and x[subcol[0]]<cohort[0] else ( True if pd.notna(x[subcol[1]]) and x[subcol[1]]<cohort[0] else False), axis=1)
+
+        # Covid-19 hospitalization before cohort
+        self.vacineja_df["HOSPITALIZACAO ANTES COORTE"] = self.vacineja_df["DATA HOSPITALIZACAO"].apply(lambda x: np.any([dts<cohort[0] for dts in x if pd.notna(dts)]) if np.any(pd.notna(x)) else False)
 
         if return_:
             return self.vacineja_df
