@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import pandas as pd
 import lib.utils as utils
 import lib.matching_aux as aux
@@ -90,27 +91,60 @@ class PerformMatching:
             self.pareados = pd.read_parquet(os.path.join(output_folder, f"PAREADOS_CPF_{seed}.parquet"))
             self.events_df = pd.read_parquet(os.path.join(output_folder, f"EVENTOS_PAREADOS_{seed}.parquet"))
 
+        # --> Reduce hospitalization dates to only one (the first date in the cohort period)
+        self.events_df["DATA HOSPITALIZACAO"] = self.events_df["DATA HOSPITALIZACAO"].apply(lambda x: aux.new_hospitalization_date(x, self.cohort))
+        
         events_col = {
             "D1": "DATA D1",
             "D2": "DATA D2",
             "OBITO COVID": "DATA OBITO COVID",
             "OBITO GERAL": "DATA OBITO GERAL",
+            "HOSPITALIZACAO COVID": "DATA HOSPITALIZACAO"
         }
         
         events = self.events_df[pd.notna(self.events_df["PAR"])]
         events = events[events["PAREADO"]==True]
+        # --> Vectorized calculation of intervals for cases and controls.
         f = lambda x: {"CPF": x["CPF"], "DATA D1": x["DATA D1"], "DATA D2": x["DATA D2"], "DATA OBITO COVID": x["DATA OBITO COVID"],
                        "DATA OBITO GERAL": x["DATA OBITO GERAL"], "DATA HOSPITALIZACAO": x["DATA HOSPITALIZACAO"], "TIPO": x["TIPO"]}
         events["DICT_INFO"] = events.apply(f, axis=1)
         events["KEY_DICT"] = events["CPF"]+events["TIPO"]
         hashdict = dict(zip(events["KEY_DICT"], events["DICT_INFO"]))
         self.events_caso = events[events["TIPO"]=="CASO"]
-        self.events_caso["RESULT"] = self.events_caso.apply(lambda x: aux.compare_pair_survival(x["DICT_INFO"], hashdict[x["PAR"]+"CONTROLE"], events_col, self.final_cohort), axis=1)
+        # --> Perform comparison for covid death as event.
+        self.events_caso["RESULT"] = self.events_caso.apply(lambda x: aux.compare_pair_survival(x["DICT_INFO"], hashdict[x["PAR"]+"CONTROLE"], events_col, self.final_cohort, col_event="OBITO COVID"), axis=1)
         self.events_caso["FINAL SURVIVAL"] = self.events_caso["RESULT"].apply(lambda x: aux.define_interval_type(x))
-        self.events_caso = self.events_caso.drop(["DICT_INFO", "KEY_DICT", "PAREADO"], axis=1)
-        self.survival_table = aux.organize_table_for_survival(self.events_caso)
+        self.events_caso["CASO D1 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D1 INTERVALO"])
+        self.events_caso["CASO D1 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D1 CENSURADO"])
+        self.events_caso["CASO D2 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D2 INTERVALO"])
+        self.events_caso["CASO D2 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D2 CENSURADO"])
+        self.events_caso["CONTROLE D1 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D1 INTERVALO"])
+        self.events_caso["CONTROLE D1 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D1 CENSURADO"])
+        self.events_caso["CONTROLE D2 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D2 INTERVALO"])
+        self.events_caso["CONTROLE D2 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D2 CENSURADO"])
+        self.survival_table = aux.organize_table_for_survival(self.events_caso, event_string="OBITO")
 
-        self.survival_table.to_parquet(os.path.join(output_folder, "SURVIVAL", f"SURVIVAL_CORONAVAC_D1D2_{seed}.parquet"))        
-        self.events_caso.to_parquet(os.path.join(output_folder, f"PAREADOS_COM_INTERVALOS_{seed}.parquet"))
+        self.survival_table.to_parquet(os.path.join(output_folder, "SURVIVAL", f"SURVIVAL_CORONAVAC_D1D2_OBITO_{seed}.parquet"))        
+        self.events_caso.drop(["DICT_INFO", "KEY_DICT", "PAREADO", "RESULT", "FINAL SURVIVAL"], axis=1).to_parquet(os.path.join(output_folder, f"PAREADOS_COM_INTERVALOS_OBITO_{seed}.parquet"))
+
+        # --> Perform comparison for covid hospitalization as event.
+        self.events_caso["RESULT"] = self.events_caso.apply(lambda x: aux.compare_pair_survival(x["DICT_INFO"], hashdict[x["PAR"]+"CONTROLE"], events_col, self.final_cohort, col_event="HOSPITALIZACAO COVID"), axis=1)
+        self.events_caso["FINAL SURVIVAL"] = self.events_caso["RESULT"].apply(lambda x: aux.define_interval_type(x))
+        self.events_caso["CASO D1 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D1 INTERVALO"])
+        self.events_caso["CASO D1 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D1 CENSURADO"])
+        self.events_caso["CASO D2 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D2 INTERVALO"])
+        self.events_caso["CASO D2 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CASO D2 CENSURADO"])
+        self.events_caso["CONTROLE D1 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D1 INTERVALO"])
+        self.events_caso["CONTROLE D1 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D1 CENSURADO"])
+        self.events_caso["CONTROLE D2 INTERVALO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D2 INTERVALO"])
+        self.events_caso["CONTROLE D2 CENSURADO"] = self.events_caso["FINAL SURVIVAL"].apply(lambda x: x["CONTROLE D2 CENSURADO"])
+        self.survival_table = aux.organize_table_for_survival(self.events_caso, event_string="HOSPITAL")
+        self.events_caso = self.events_caso.drop(["DICT_INFO", "KEY_DICT", "PAREADO", "RESULT", "FINAL SURVIVAL"], axis=1)
+
+        self.survival_table.to_parquet(os.path.join(output_folder, "SURVIVAL", f"SURVIVAL_CORONAVAC_D1D2_HOSPITAL_{seed}.parquet"))        
+        self.events_caso.to_parquet(os.path.join(output_folder, f"PAREADOS_COM_INTERVALOS_HOSPITAL_{seed}.parquet"))
+
+        self.pareados = None
+        self.events_df = None
         
         

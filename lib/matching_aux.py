@@ -1,4 +1,3 @@
-from ast import Return
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
@@ -281,7 +280,7 @@ def extract_pair_dict(cpf_caso, cpf_controle, eventos_df):
         controle_dict = sub_controle[sub_controle["TIPO"]=="CONTROLE"].to_dict(orient='records')
     return caso_dict, controle_dict
 
-def compare_pair_survival(caso_hash, controle_hash, events_col, final_cohort):
+def compare_pair_survival(caso_hash, controle_hash, events_col, final_cohort, col_event="OBITO COVID"):
     '''
         Description.
         
@@ -294,6 +293,8 @@ def compare_pair_survival(caso_hash, controle_hash, events_col, final_cohort):
                 dictionary.
             final_cohort:
                 datetime.date.
+            col_event:
+                String.
         Return:
             res:
                 dictionary.
@@ -303,12 +304,12 @@ def compare_pair_survival(caso_hash, controle_hash, events_col, final_cohort):
     # Get events of case
     caso_d1_date = caso_hash[events_col["D1"]]
     caso_d2_date = caso_hash[events_col["D2"]]
-    caso_covid_date = caso_hash[events_col["OBITO COVID"]]
+    caso_covid_date = caso_hash[events_col[col_event]]
     caso_geral_date = caso_hash[events_col["OBITO GERAL"]]
     # Get events of control
     control_d1_date = controle_hash[events_col["D1"]]
     control_d2_date = controle_hash[events_col["D2"]]
-    control_covid_date = controle_hash[events_col["OBITO COVID"]]
+    control_covid_date = controle_hash[events_col[col_event]]
     control_geral_date = controle_hash[events_col["OBITO GERAL"]]
     
     f = lambda x: x if pd.notna(x) else np.nan
@@ -416,25 +417,51 @@ def define_interval_type(info):
         new_df["CONTROLE D2 INTERVALO"] = info_d2_controle[0][1]
         new_df["CONTROLE D2 CENSURADO"] = True
 
+    # If case individual does not have second dose, remove pair
+    if pd.isna(new_df["CASO D2 INTERVALO"]):
+        new_df["CONTROLE D2 INTERVALO"] = np.nan
+    # If event occurred before starting of the pair cohort, remove pair 
+    if pd.notna(new_df["CASO D2 INTERVALO"]) and pd.notna(new_df["CONTROLE D2 INTERVALO"]):
+        if new_df["CASO D2 INTERVALO"]<0 or new_df["CONTROLE D2 INTERVALO"]<0:
+            new_df["CASO D2 INTERVALO"] = np.nan
+            new_df["CONTROLE D2 INTERVALO"] = np.nan
+    if pd.notna(new_df["CASO D1 INTERVALO"]) and pd.notna(new_df["CONTROLE D1 INTERVALO"]):
+        if new_df["CASO D1 INTERVALO"]<0 or new_df["CONTROLE D1 INTERVALO"]<0:
+            new_df["CASO D1 INTERVALO"] = np.nan
+            new_df["CONTROLE D1 INTERVALO"] = np.nan
+
     return new_df
 
-def organize_table_for_survival(df):
+def organize_table_for_survival(df, event_string="OBITO"):
     '''
     
     '''
-    tb = {"CPF": [], "TIPO": [], f"t - D1 OBITO": [], f"E - D1 OBITO": [], f"t - D2 OBITO": [], f"E - D2 OBITO": []}
+    tb = {"CPF": [], "TIPO": [], f"t - D1 {event_string}": [], f"E - D1 {event_string}": [], f"t - D2 {event_string}": [], f"E - D2 {event_string}": []}
     for j in range(df.shape[0]):
         res = df["FINAL SURVIVAL"].iat[j]
         tb["CPF"].append(res["CPF CASO"])
         tb["TIPO"].append("CASO")
-        tb["t - D1 OBITO"].append(res['CASO D1 INTERVALO'])
-        tb["t - D2 OBITO"].append(res['CASO D2 INTERVALO'])
-        tb["E - D1 OBITO"].append(not res['CASO D1 CENSURADO'])
-        tb["E - D2 OBITO"].append(not res['CASO D2 CENSURADO'])
+        tb[f"t - D1 {event_string}"].append(res['CASO D1 INTERVALO'])
+        tb[f"t - D2 {event_string}"].append(res['CASO D2 INTERVALO'])
+        tb[f"E - D1 {event_string}"].append(not res['CASO D1 CENSURADO'])
+        tb[f"E - D2 {event_string}"].append(not res['CASO D2 CENSURADO'])
         tb["CPF"].append(res["CPF CONTROLE"])
         tb["TIPO"].append("CONTROLE")
-        tb["t - D1 OBITO"].append(res['CONTROLE D1 INTERVALO'])
-        tb["t - D2 OBITO"].append(res['CONTROLE D2 INTERVALO'])
-        tb["E - D1 OBITO"].append(not res['CONTROLE D1 CENSURADO'])
-        tb["E - D2 OBITO"].append(not res['CONTROLE D2 CENSURADO'])
+        tb[f"t - D1 {event_string}"].append(res['CONTROLE D1 INTERVALO'])
+        tb[f"t - D2 {event_string}"].append(res['CONTROLE D2 INTERVALO'])
+        tb[f"E - D1 {event_string}"].append(not res['CONTROLE D1 CENSURADO'])
+        tb[f"E - D2 {event_string}"].append(not res['CONTROLE D2 CENSURADO'])
     return pd.DataFrame(tb)
+
+def new_hospitalization_date(x, cohort):
+    '''
+    
+    '''
+    if not np.any(pd.notna(x)):
+        return np.nan
+    x = np.sort([xx for xx in x if pd.notna(xx)]) 
+    condition = (x>=cohort[0]) & (x<=cohort[1])
+    if x[condition].shape[0]>0:
+        return x[condition][0]
+    else:
+        return np.nan
