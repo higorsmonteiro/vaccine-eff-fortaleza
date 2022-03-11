@@ -8,7 +8,6 @@ import pandas as pd
 import datetime as dt
 from collections import defaultdict
 from dateutil.relativedelta import relativedelta
-
 import lib.schema_aux as aux
 
 class DefineSchema:
