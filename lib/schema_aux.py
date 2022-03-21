@@ -105,3 +105,16 @@ def vaccination_status(x):
     if pd.notna(d4):
         status+='(D4)'
     return status
+
+def new_uti_date(x, cohort):
+    '''
+    
+    '''
+    if not np.any(pd.notna(x)):
+        return np.nan
+    x = np.sort([xx for xx in x if pd.notna(xx)]) 
+    condition = (x>=cohort[0]) & (x<=cohort[1])
+    if x[condition].shape[0]>0:
+        return x[condition][0]
+    else:
+        return np.nan

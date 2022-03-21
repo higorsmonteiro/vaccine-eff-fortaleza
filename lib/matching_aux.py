@@ -1,17 +1,19 @@
+from ast import Pass
+from turtle import setx
 import numpy as np
 import pandas as pd
 from tqdm import tqdm
 from collections import defaultdict
 
-def initial_filtering(df, vaccine, age_range, cohort):
+def initial_filtering(df, vaccine, age_range, HDI_index=0, pop_test="ALL"):
     '''
-        First rule to consider when performing matching.
+        Rules to consider when performing matching.
     '''
     # Zeroth rule: Filter by age range.
     df = df[(df["IDADE"]>=age_range[0]) & (df["IDADE"]<=age_range[1])]
 
     # First rule: Filter out uncommon vaccination schemes.
-    ruleout = ["(D2)", "(D4)", "(D1)(D4)", "(D1)(D2)(D4)"]
+    ruleout = ["(D2)", "(D1)(D4)", "(D1)(D2)(D4)"]
     df = df[~df["STATUS VACINACAO DURANTE COORTE"].isin(ruleout)]
 
     # Second rule: Remove everyone with positive test before cohort.
@@ -21,19 +23,28 @@ def initial_filtering(df, vaccine, age_range, cohort):
     df = df[(df["OBITO INCONSISTENCIA CARTORIOS"]==False) & (df["OBITO INCONSISTENCIA COVID"]==False)]
 
     # Fourth rule: Remove all deaths before cohort.
-    #df["OBITO ANTES COORTE"] = df[subcol].apply(lambda x: True if pd.notna(x[subcol[0]]) and x[subcol[0]]<cohort[0] else ( True if pd.notna(x[subcol[1]]) and x[subcol[1]]<cohort[0] else False), axis=1)
     df = df[df["OBITO ANTES COORTE"]==False]
 
     # Fifth rule(for hospitalization): Remove all hospitalization before cohort.
-    #df["HOSPITALIZACAO ANTES COORTE"] = df["DATA HOSPITALIZACAO"].apply(lambda x: np.any([dts<cohort[0] for dts in x if pd.notna(dts)]) if np.any(pd.notna(x)) else False)
     df = df[df["HOSPITALIZACAO ANTES COORTE"]==False]
 
-    # Sixth rule: Select vaccine and nonvaccinated individuals
+    # Sixth rule: Remove health workers and health profissionals
+    df = df[~df["GRUPO PRIORITARIO"].isin(["PROFISSIONAL DE SAUDE", "TRABALHADOR DA SAUDE"])]
+
+    # Seventh rule: Remove records without info on matching variables.
+    df = df[(pd.notna(df["IDADE"])) & (pd.notna(df["SEXO"])) & (pd.notna(df[f"IDH {HDI_index}"]))]
+    
+    # Eighth rule: Select vaccine and nonvaccinated individuals
     df_vaccinated = df[df["VACINA APLICADA"]==vaccine]
-    df_nonvaccinated = df[df["VACINA APLICADA"]=="NAO VACINADO"]
+    if pop_test=="ALL":
+        df_nonvaccinated = df[df["VACINA APLICADA"]!=vaccine]
+    elif pop_test=="VACCINE":
+        df_nonvaccinated = df[df["VACINA APLICADA"]=="NAO VACINADO"]
+    else:
+        pass
     return df, df_vaccinated, df_nonvaccinated
 
-def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names=None):
+def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, HDI_index=0, col_names=None):
     '''
         Fill 'control_used' dictionary with the dates (specified in 'control_dates') of each person
         (represented by their CPF) regarding the main events considered in the analysis.
@@ -55,6 +66,7 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
     for j in tqdm(range(df_pop.shape[0])):
         cpf = df_pop["CPF"].iat[j]
         sex, age = df_pop["SEXO"].iat[j], df_pop["IDADE"].iat[j]
+        idh = df_pop[f"IDH {HDI_index}"].iat[j]
 
         # Different outcomes' dates
         dt_d1 = df_pop[col_names["D1"]].iat[j]
@@ -62,8 +74,9 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
         dt_death = df_pop[col_names["OBITO COVID"]].iat[j]
         dt_death_general = df_pop[col_names["OBITO GERAL"]].iat[j]
         dt_hosp_covid = df_pop[col_names["HOSPITALIZACAO COVID"]].iat[j]
+        dt_uti_covid = df_pop[col_names["UTI COVID"]].iat[j]
 
-        control_reservoir[(age,sex)].append(cpf)
+        control_reservoir[(age,sex,idh)].append(cpf)
         if pd.notna(dt_d1):
             control_dates["D1"][cpf] = dt_d1
         if pd.notna(dt_d2):
@@ -74,6 +87,8 @@ def collect_dates_for_cohort(df_pop, control_reservoir, control_dates, col_names
             control_dates["DEATH GENERAL"][cpf] = dt_death_general
         if np.any(pd.notna(dt_hosp_covid)):
             control_dates["HOSPITALIZATION COVID"][cpf] = dt_hosp_covid
+        if np.any(pd.notna(dt_uti_covid)):
+            control_dates["UTI COVID"][cpf] = dt_uti_covid
 
 def rearrange_controls(control_reservoir, seed):
     '''
@@ -92,7 +107,7 @@ def rearrange_controls(control_reservoir, seed):
     for key in control_reservoir.keys():
         np.random.shuffle(control_reservoir[key])
 
-def perform_matching(datelst, df_vac, control_reservoir, control_used, control_dates, col_names):
+def perform_matching(datelst, df_vac, control_reservoir, control_used, control_dates, HDI_index, col_names):
     '''
         Description.
 
@@ -107,6 +122,8 @@ def perform_matching(datelst, df_vac, control_reservoir, control_used, control_d
                 collections.defaultdict.
             control_dates:
                 collections.defaultdict.
+            HDI_index:
+                Integer.
             col_names:
                 dictionary.
         Return:
@@ -115,8 +132,8 @@ def perform_matching(datelst, df_vac, control_reservoir, control_used, control_d
             matched:
                 dictionary.
     '''
-    matchings = defaultdict(lambda:-1)
-    matched = defaultdict(lambda:False)
+    matchings = defaultdict(lambda:-1) # Pairs -> key-value:case-control.
+    matched = defaultdict(lambda:False) # Whether an individual was matched.
     for current_date in tqdm(datelst):
         # Select all people who was vaccinated at the current date
         df_vac["compare_date"] = df_vac[col_names["D1"]].apply(lambda x: True if x==current_date else False)
@@ -125,10 +142,12 @@ def perform_matching(datelst, df_vac, control_reservoir, control_used, control_d
         cpf_list = current_vaccinated["CPF"].tolist()
         age_list = current_vaccinated["IDADE"].tolist()
         sex_list = current_vaccinated["SEXO"].tolist()
+        idh_list = current_vaccinated[f"IDH {HDI_index}"].tolist()
 
         # For each person vaccinated at the current date, check if there is a control for he/she.
         for j in range(0, len(cpf_list)):
-            pair = find_pair(current_date, age_list[j], sex_list[j], control_reservoir, control_used, control_dates)
+            matching_vars = (age_list[j], sex_list[j], idh_list[j])
+            pair = find_pair(current_date, matching_vars, control_reservoir, control_used, control_dates)
             if pair!=-1:
                 matchings[cpf_list[j]] = pair
     
@@ -151,19 +170,12 @@ def get_events(df_pop, pareados, matched, col_names):
             datas:
                 pandas.DataFrame.
     '''
-    if col_names is None:
-        col_names = {
-            "D1": "data D1(VACINADOS)",
-            "D2": "data D2(VACINADOS)",
-            "OBITO COVID": "data_obito(OBITO COVID)",
-            "OBITO GERAL": "data falecimento(CARTORIOS)"
-        }
-
     data_obito = defaultdict(lambda:np.nan)
     data_obito_geral = defaultdict(lambda:np.nan)
     data_d1 = defaultdict(lambda:np.nan)
     data_d2 = defaultdict(lambda:np.nan)
     data_hospitalizado = defaultdict(lambda: np.nan)
+    data_uti = defaultdict(lambda: np.nan)
     for j in range(df_pop.shape[0]):
         cpf = df_pop["CPF"].iat[j]
         d1_dt = df_pop[col_names["D1"]].iat[j]
@@ -171,6 +183,7 @@ def get_events(df_pop, pareados, matched, col_names):
         obito = df_pop[col_names["OBITO COVID"]].iat[j]
         obito_geral = df_pop[col_names["OBITO GERAL"]].iat[j]
         hosp = df_pop["DATA HOSPITALIZACAO"].iat[j]
+        uti = df_pop["DATA UTI"].iat[j]
         if pd.notna(obito):
             data_obito[cpf] = obito
         elif pd.notna(obito_geral):
@@ -181,12 +194,14 @@ def get_events(df_pop, pareados, matched, col_names):
             data_d2[cpf] = d2_dt
         if np.any(pd.notna(hosp)): # it is a list of dates.
             data_hospitalizado[cpf] = hosp
+        if pd.notna(uti): # it is a list of dates.
+            data_uti[cpf] = uti
 
     # -- create cols with dates --
     datas = {
         "CPF": [], "DATA D1": [], "DATA D2": [],
         "DATA OBITO COVID": [], "DATA OBITO GERAL": [],
-        "DATA HOSPITALIZACAO": [],
+        "DATA HOSPITALIZACAO": [], "DATA UTI": [],
         "TIPO": [], "PAR": [], "PAREADO": []
     }
     print("Criando tabela de eventos ...") 
@@ -200,6 +215,7 @@ def get_events(df_pop, pareados, matched, col_names):
         datas["DATA OBITO COVID"] += [data_obito[cpf_caso], data_obito[cpf_control]]
         datas["DATA OBITO GERAL"] += [data_obito_geral[cpf_caso], data_obito_geral[cpf_control]]
         datas["DATA HOSPITALIZACAO"] += [data_hospitalizado[cpf_caso], data_hospitalizado[cpf_control]]
+        datas["DATA UTI"] += [data_uti[cpf_caso], data_uti[cpf_control]]
         datas["TIPO"] += ["CASO", "CONTROLE"]
         datas["PAR"] += [cpf_control, cpf_caso]
         datas["PAREADO"] += [True, True]
@@ -215,6 +231,7 @@ def get_events(df_pop, pareados, matched, col_names):
             datas["DATA OBITO COVID"] += [data_obito[cpf]]
             datas["DATA OBITO GERAL"] += [data_obito_geral[cpf]]
             datas["DATA HOSPITALIZACAO"] += [data_hospitalizado[cpf]]
+            datas["DATA UTI"] += [data_uti[cpf]]
             datas["TIPO"] += ["NAO PAREADO"]
             datas["PAR"] += [np.nan]
             datas["PAREADO"] += [False]
@@ -222,7 +239,7 @@ def get_events(df_pop, pareados, matched, col_names):
     datas = pd.DataFrame(datas)
     return datas
 
-def find_pair(cur_date, age_case, sex_case, control_reservoir, control_used, control_dates, age_interval=1):
+def find_pair(cur_date, matching_vars, control_reservoir, control_used, control_dates, age_interval=1):
     '''
         Based on the features of the exposed individual, find a control to match.
 
@@ -230,10 +247,8 @@ def find_pair(cur_date, age_case, sex_case, control_reservoir, control_used, con
             cur_date:
                 Date of vaccination of the exposed individual. It cannot be after
                 the vaccination of the control (if vaccinated).
-            age_case:
-                Age of the exposed individual.
-            sex_case:
-                Sex of the exposed individual.
+            matching_vars:
+                3-Tuple of values. age, sex and HDI(categorical) of the case.
             control_reservoir:
                 Hash table holding lists of control candidates for each tuple (age,sex).
             control_used:
@@ -248,17 +263,20 @@ def find_pair(cur_date, age_case, sex_case, control_reservoir, control_used, con
             cpf_control:
                 Either -1 or a CPF number (for the found control).
     '''
+    age_case, sex_case, idh_case = matching_vars[0], matching_vars[1], matching_vars[2]
     eligible_controls = []
     for j in np.arange(age_case-age_interval, age_case+age_interval+1, 1):
-        eligible_controls += control_reservoir[(j, sex_case)]
+        eligible_controls += control_reservoir[(j, sex_case, idh_case)]
     
     for cpf_control in eligible_controls:
         if not control_used[cpf_control]:
             condition_d1 = control_dates["D1"][cpf_control]==-1 or control_dates["D1"][cpf_control]>cur_date
-            condition_death = control_dates["DEATH COVID"][cpf_control]==-1 or control_dates["DEATH COVID"][cpf_control]>cur_date
-            condition_death_geral = control_dates["DEATH GENERAL"][cpf_control]==-1 or control_dates["DEATH GENERAL"][cpf_control]>cur_date
-            #condition_hospt = control_dates["HOSPITAL"][cpf_control]==-1 or control_dates["HOSPITAL"][cpf_control]>cur_date
-            if condition_d1 and condition_death and condition_death_geral:
+            #condition_death = control_dates["DEATH COVID"][cpf_control]==-1 or control_dates["DEATH COVID"][cpf_control]>cur_date
+            #condition_death_geral = control_dates["DEATH GENERAL"][cpf_control]==-1 or control_dates["DEATH GENERAL"][cpf_control]>cur_date
+            #if condition_d1 and condition_death and condition_death_geral:
+            #    control_used[cpf_control] = True
+            #    return cpf_control
+            if condition_d1:
                 control_used[cpf_control] = True
                 return cpf_control
     return -1
@@ -465,3 +483,14 @@ def new_hospitalization_date(x, cohort):
         return x[condition][0]
     else:
         return np.nan
+
+def f_hdi_range(x, irange, include_nans=False):
+    '''
+        Auxiliary function for .apply() to define categorical variables
+        for the HDI variable.
+    '''
+    for k in range(len(irange)-1):
+        if include_nans and pd.isna(x):
+            return k
+        if x>irange[k] and x<=irange[k+1]:
+            return k

@@ -19,6 +19,7 @@ class ProcessingAndLinkage:
         self.integra_df = None          # IntegraSUS Covid-19 tests.
         self.obitos_covid_df = None 
         self.obitos_cartorios_df = None
+        self.bairro_df = None
 
     def set_paths(self):
         '''
@@ -35,6 +36,7 @@ class ProcessingAndLinkage:
                                           self.name_of_files["OBITOS CARTORIOS"])
         self.obitos_covid_path = os.path.join(self.path_to_data["OBITOS COVID-19"], 
                                               self.name_of_files["OBITOS COVID-19"])
+        self.bairro_path = os.path.join(self.path_to_data["BAIRROS IDH"], self.name_of_files["BAIRROS IDH"])
 
     def load_dbs(self, nrows_dict=None, cols_dict=None):
         '''
@@ -73,6 +75,7 @@ class ProcessingAndLinkage:
             self.tests_df = self.tests_df[:nrows_dict["IntegraSUS"]]
         self.obitos_cartorios_df = pd.read_csv(self.cartorio_path, dtype={"cpf": str, "cpf novo str": str, "do_8": str})
         self.obitos_covid_df = pd.read_excel(self.obitos_covid_path, dtype={"ORDEM": str, "NUMERODO": str}, sheet_name="OBITOS")
+        self.bairro_df = pd.read_excel(self.bairro_path, sheet_name="BAIRRO_IDH")
 
     def transform(self, init_cohort, save=False, fpath=None):
         '''
@@ -86,6 +89,7 @@ class ProcessingAndLinkage:
         self.tests_df = transf.transform_integrasus(self.tests_df, init_cohort)
         self.obitos_cartorios_df = transf.transform_cartorios(self.obitos_cartorios_df)
         self.obitos_covid_df = transf.transform_obito_covid(self.obitos_covid_df)
+        self.bairro_df = transf.transform_bairros(self.bairro_df)
 
         col_key = ["NOMENASCIMENTOCHAVE", "NOMENOMEMAECHAVE", "NOMEMAENASCIMENTOCHAVE",	"NOMEHASHNASCIMENTOCHAVE",	
                    "NOMEMAEHASHNASCIMENTOCHAVE"]
@@ -95,6 +99,7 @@ class ProcessingAndLinkage:
             self.tests_df.drop(col_key, axis=1).to_parquet(os.path.join(fpath, "INTEGRASUS.parquet"))
             self.obitos_cartorios_df.drop(col_key, axis=1).to_parquet(os.path.join(fpath, "OBITO_CARTORIO.parquet"))
             self.obitos_covid_df.drop(col_key, axis=1).to_parquet(os.path.join(fpath, "OBITO_COVID.parquet"))
+            self.bairro_df.to_parquet(os.path.join(fpath, "BAIRRO_IDH.parquet"))
 
     def linkage(self, save=False, fpath=os.path.join("output", "data", "LINKAGE")):
         '''

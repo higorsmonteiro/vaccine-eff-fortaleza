@@ -31,6 +31,7 @@ class DefineSchema:
         self.tests_df = pd.read_parquet(os.path.join(self.base_folder, folder, "INTEGRASUS.parquet"))
         self.obito_covid_df = pd.read_parquet(os.path.join(self.base_folder, folder, "OBITO_COVID.parquet"))
         self.obito_cartorio_df = pd.read_parquet(os.path.join(self.base_folder, folder, "OBITO_CARTORIO.parquet"))
+        self.bairro_df = pd.read_parquet(os.path.join(self.base_folder, folder, "BAIRRO_IDH.parquet"))
         self.sivep_df = pd.read_parquet(os.path.join(self.base_folder, folder, "SIVEP-GRIPE", "SIVEP_COVID19_2021.parquet"))
     
     def load_linked_data(self, folder=os.path.join("output", "data", "LINKAGE")):
@@ -69,6 +70,7 @@ class DefineSchema:
         self.vacineja_df["ordem LINKAGE OBITO COVID"] = self.vacineja_df["cpf"].apply(lambda x: to_covid[x])
         self.vacineja_df["cpf LINKAGE CARTORIOS"] = self.vacineja_df["cpf"].apply(lambda x: to_cart[x])
         self.vacineja_df["primary key LINKAGE SIVEP"] = self.vacineja_df["cpf"].apply(lambda x: to_sivep[x])
+        self.vacineja_df = self.vacineja_df.merge(self.bairro_df[["NOME_BAIRRO", "IDH2010", "SR"]], left_on="bairro", right_on="NOME_BAIRRO", how="left")
         
         self.tests_df = self.tests_df.set_index("id")
         self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: aux.select_indexes(self.tests_df, x) if type(x)!=float else False)
@@ -80,7 +82,7 @@ class DefineSchema:
             Create final schema containing main information from the other databases and derived info.
         '''
         col_vacinados = ["cpf(VACINADOS)", "vacina(VACINADOS)", "data D1(VACINADOS)", "data D2(VACINADOS)", "data D3(VACINADOS)", 
-                         "data D4(VACINADOS)"]
+                         "data D4(VACINADOS)", "grupo prioritario(VACINADOS)"]
         self.vacineja_df = self.vacineja_df.merge(self.vacinados_df[col_vacinados].dropna(subset=["cpf(VACINADOS)"], axis=0), left_on="cpf LINKAGE VACINADOS",
                                                   right_on="cpf(VACINADOS)", how="left").drop("cpf(VACINADOS)", axis=1)
         col_covid = ["ORDEM(OBITO COVID)", "numerodo", "data_pri_sintomas_nova(OBITO COVID)", "data_obito(OBITO COVID)"]
@@ -91,7 +93,7 @@ class DefineSchema:
                                                   right_on="cpf(CARTORIOS)", how="left").drop("cpf(CARTORIOS)", axis=1)
 
         # --> Join SIVEP COLUMNS
-        col_sivep = ["PRIMARY_KEY", "DT_NOTIFIC", "DT_INTERNA", "EVOLUCAO", "DT_EVOLUCA"]
+        col_sivep = ["PRIMARY_KEY", "DT_NOTIFIC", "DT_INTERNA", "EVOLUCAO", "DT_EVOLUCA", "UTI", "DT_ENTUTI"]
         agg_sivep = self.sivep_df[col_sivep].astype(str).groupby("PRIMARY_KEY").agg(";".join).reset_index()
         self.vacineja_df = self.vacineja_df.merge(agg_sivep.dropna(subset=["PRIMARY_KEY"], axis=0), left_on="primary key LINKAGE SIVEP",
                                                                               right_on="PRIMARY_KEY", how="left").drop("PRIMARY_KEY", axis=1)
@@ -103,6 +105,9 @@ class DefineSchema:
         self.vacineja_df["EVOLUCAO"] = self.vacineja_df["EVOLUCAO"].apply(lambda x: x.split(";") if pd.notna(x) else np.nan)
         self.vacineja_df["DT_INTERNA"] = self.vacineja_df["DT_INTERNA"].apply(lambda x: x if not np.all(pd.isna(x)) else np.nan)
         self.vacineja_df["DT_NOTIFIC"] = self.vacineja_df["DT_NOTIFIC"].apply(lambda x: x if not np.all(pd.isna(x)) else np.nan)
+        self.vacineja_df["DT_ENTUTI"] = self.vacineja_df["DT_ENTUTI"].apply(lambda x: [pd.to_datetime(xx) for xx in x.split(";")] if pd.notna(x) else np.nan)
+        self.vacineja_df["DT_ENTUTI"] = self.vacineja_df["DT_ENTUTI"].apply(lambda x: x if not np.all(pd.isna(x)) else np.nan)
+        self.vacineja_df["DATA UTI"] = self.vacineja_df["DT_ENTUTI"].apply(lambda x: aux.new_uti_date(x, cohort))
         
         # --> Verify inconsistencies in tests dates
         col_tests = ["POSITIVOS COLETA DATA", "POSITIVOS SOLICITACAO DATA", "data_obito(OBITO COVID)"]
@@ -114,7 +119,7 @@ class DefineSchema:
         self.vacineja_df = self.vacineja_df.drop(["created_at"], axis=1)
         self.vacineja_df = self.vacineja_df.rename({"nome": "NOME", "nome_mae": "NOME MAE", "cpf": "CPF", "cns": "CNS", "data_nascimento": "DATA NASCIMENTO",
                                                     "cep": "CEP", "bairro": "BAIRRO", "sexo": "SEXO", "situacao": "SITUACAO VACINEJA",
-                                                    "vacina(VACINADOS)": "VACINA APLICADA", "data D1(VACINADOS)": "DATA D1", 
+                                                    "vacina(VACINADOS)": "VACINA APLICADA", "data D1(VACINADOS)": "DATA D1", "grupo prioritario(VACINADOS)": "GRUPO PRIORITARIO",
                                                     "data D2(VACINADOS)": "DATA D2", "data D3(VACINADOS)": "DATA D3", "data D4(VACINADOS)": "DATA D4",
                                                     "numerodo": "NUMERODO(OBITO COVID)", "data_pri_sintomas_nova(OBITO COVID)": "DATA PRI SINTOMAS(OBITO COVID)", 
                                                     "data_obito(OBITO COVID)": "DATA OBITO", "data falecimento(CARTORIOS)": "DATA FALECIMENTO(CARTORIOS)",
@@ -166,6 +171,11 @@ class DefineSchema:
 
         # Covid-19 hospitalization before cohort
         self.vacineja_df["HOSPITALIZACAO ANTES COORTE"] = self.vacineja_df["DATA HOSPITALIZACAO"].apply(lambda x: np.any([dts<cohort[0] for dts in x if pd.notna(dts)]) if np.any(pd.notna(x)) else False)
+
+        # --> Treat JANSSEN vaccine as D1-D2.
+        str_vac = "STATUS VACINACAO DURANTE COORTE"
+        self.vacineja_df["DATA D1"] = self.vacineja_df[["DATA D1", "DATA D4", str_vac]].apply(lambda x: x["DATA D4"] if x[str_vac]=="(D4)" else x["DATA D1"], axis=1)
+        self.vacineja_df["DATA D2"] = self.vacineja_df[["DATA D2", "DATA D4", str_vac]].apply(lambda x: x["DATA D4"] if x[str_vac]=="(D4)" else x["DATA D2"], axis=1)
 
         if return_:
             return self.vacineja_df

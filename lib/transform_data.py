@@ -224,4 +224,18 @@ def transform_obito_covid(df):
     df = df.drop(["nome_tratado(OBITO COVID)", "nome_mae_tratado(OBITO COVID)", "nome hashcode(OBITO COVID)", "nome mae hashcode(OBITO COVID)"], axis=1)
     return df
 
+def transform_bairros(bairro_df):
+    '''
     
+    '''
+    bairro_df = bairro_df[["NOME_BAIRRO", "SR", "idhmb2010"]]
+    bairro_df = bairro_df.set_index("NOME_BAIRRO").rename({"BAIRRO DE LOURDES": "DE LOURDES",
+                                                    "CIDADE 2000": "CIDADE 2.000",
+                                                    "LUCIANO CAVALCANTE": "ENGENHEIRO LUCIANO CAVALCANTE",
+                                                    "PARQUE GENIBAU": "GENIBAU",
+                                                    "SAPIRANGA COITE": "SAPIRANGA / COITE",
+                                                    "VICENTE PINZON": "VINCENTE PINZON"}, axis=0).reset_index()
+    bairro_df = bairro_df.rename({"idhmb2010": "IDH"}, axis=1)
+    return bairro_df
+
+

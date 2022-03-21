@@ -15,6 +15,7 @@ fpaths = {
     #"OBITOS COVID-19": os.path.join(base_folder, "obito_covid19", "READY_TO_LINKAGE"),
     "OBITOS COVID-19": r"C:\\Users\\higor.monteiro\\Documents\\data\\obitos_covid19\\READY_TO_LINKAGE",
     "OBITOS CARTORIOS": os.path.join(base_folder, "obitos_cartorios"),
+    "BAIRROS IDH": base_folder,
 }
 
 fnames = {
@@ -23,6 +24,7 @@ fnames = {
     "TESTES COVID-19 INTEGRA": "base_dados_integrasus_fortaleza_final.dta",
     "OBITOS COVID-19": "POSITIVOS COVID 19 FORTALEZA.xlsx",
     "OBITOS CARTORIOS": "obitos_cartorios_tratado_22_11_2021.csv",
+    "BAIRROS IDH": "BAIROS_IDH.xlsx",
 }
 
 process = ProcessingAndLinkage(fpaths, fnames)
