@@ -18,7 +18,7 @@ from lifelines.plotting import add_at_risk_counts
 import matplotlib.pyplot as plt
 
 class VaccineEffectiveness:
-    def __init__(self, final_schema, pairs_df, cohort, event="OBITO", suffix=""):
+    def __init__(self, final_schema, pairs_df, cohort, event="OBITO"):
         '''
             Description.
         '''
@@ -26,7 +26,6 @@ class VaccineEffectiveness:
         self.pairs_hash = dict(zip(pairs_df["CPF CASO"], pairs_df["CPF CONTROLE"]))
         self.cohort = cohort
         self.event = event
-        self.suffix = suffix
 
     def initialize_objects(self):
         '''
@@ -74,7 +73,7 @@ class VaccineEffectiveness:
         '''
             Description.
         '''
-        fname = os.path.join(survival_folder, f"SURVIVAL_{vaccine}_D1D2_{self.event}_{seed}{self.suffix}.parquet")
+        fname = os.path.join(survival_folder, f"SURVIVAL_{vaccine}_D1D2_{self.event}_{seed}.parquet")
         self.fsurvival = pd.read_parquet(fname)
         # Obtain demographic data
         self.fsurvival = self.fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO"]], on="CPF", how="left")
@@ -102,7 +101,7 @@ class VaccineEffectiveness:
 
                 seed:
         '''
-        fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}{self.suffix}.parquet")
+        fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}.parquet")
         fsurvival = pd.read_parquet(fname_survival)
         fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO"]], on="CPF", how="left")
 
@@ -193,15 +192,20 @@ class VaccineEffectiveness:
             fig, ax = plt.subplots(1, figsize=(8,6))
             ax = kmf_caso.plot_cumulative_density()
             ax = kmf_controle.plot_cumulative_density()
-            add_at_risk_counts(kmf_caso, kmf_controle, ax=ax, xticks=[0,20,40,60,80,100,120,140])
+            #if "D1" in key:
+            #    add_at_risk_counts(kmf_caso, kmf_controle, ax=ax, xticks=[0,20,40,60])
+            #else:
+            #    add_at_risk_counts(kmf_caso, kmf_controle, ax=ax, xticks=[0,20,40,60,80,100,120])
+            add_at_risk_counts(kmf_caso, kmf_controle, ax=ax, xticks=[0,20,40,60,80,100,120])                
             self.cumul_figures[key] = (fig,ax)
             self.cumul_figures[key][1].set_title(key)
+            #self.cumul_figures[key][1].savefig(os.path.join(folder, f"{key}_{t_min}.pdf"), dpi=120)
 
-    def generate_output(self, seed_folder, t_min, prefix):
+    def generate_output(self, seed_folder, t_min):
         '''
         
         '''
-        with pd.ExcelWriter(os.path.join(seed_folder, f"VE_{t_min}_{prefix}.xlsx")) as writer:
+        with pd.ExcelWriter(os.path.join(seed_folder, f"VE_{t_min}_{self.event}.xlsx")) as writer:
             self.bootstrap_results["D1"].to_excel(writer, sheet_name=f"D1")
             self.bootstrap_results["D2"].to_excel(writer, sheet_name=f"D2")
             self.bootstrap_results["D1_MALE"].to_excel(writer, sheet_name=f"D1_MALE")
@@ -214,7 +218,7 @@ class VaccineEffectiveness:
             self.bootstrap_results["D2_7079"].to_excel(writer, sheet_name=f"D2_7079")
             self.bootstrap_results["D1_80+"].to_excel(writer, sheet_name=f"D1_80+")
             self.bootstrap_results["D2_80+"].to_excel(writer, sheet_name=f"D2_80+")
-        with pd.ExcelWriter(os.path.join(seed_folder, f"KM_events_{t_min}_{prefix}.xlsx")) as writer:
+        with pd.ExcelWriter(os.path.join(seed_folder, f"KM_events_{t_min}_{self.event}.xlsx")) as writer:
             self.etables["D1"].to_excel(writer, sheet_name=f"KM_D1")
             self.etables["D2"].to_excel(writer, sheet_name=f"KM_D2")
             self.etables["D1_MALE"].to_excel(writer, sheet_name=f"KM_D1_MALE")
@@ -227,6 +231,10 @@ class VaccineEffectiveness:
             self.etables["D2_7079"].to_excel(writer, sheet_name=f"KM_D2_7079")
             self.etables["D1_80+"].to_excel(writer, sheet_name=f"KM_D1_80+")
             self.etables["D2_80+"].to_excel(writer, sheet_name=f"KM_D2_80+")
+        
+        # curves
+        for key in self.cumul_figures.keys():
+            self.cumul_figures[key][0].savefig(os.path.join(seed_folder, "FIGS", f"{key}_{t_min}.pdf"))
             
 
 
