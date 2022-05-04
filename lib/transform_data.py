@@ -89,7 +89,6 @@ def transform_vacinados(df):
     df["NOMEHASHNASCIMENTOCHAVE"] = df["nome hashcode(VACINADOS)"].astype(str) + df["data nascimento(VACINADOS)"].astype(str)
     df["NOMEMAEHASHNASCIMENTOCHAVE"] = df["nome mae hashcode(VACINADOS)"].astype(str) + df["data nascimento(VACINADOS)"].astype(str)
     df = df.drop(["nome tratado(VACINADOS)", "nome mae tratado(VACINADOS)", "nome hashcode(VACINADOS)", "nome mae hashcode(VACINADOS)"], axis=1)
-
     return df
 
 def transform_integrasus(df, init_cohort):

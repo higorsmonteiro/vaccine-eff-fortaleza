@@ -36,8 +36,9 @@ class PerformMatching:
             self.colnames = {
                 "D1": "DATA D1",
                 "D2": "DATA D2",
-                "OBITO COVID": "DATA OBITO",
                 "OBITO GERAL": "DATA FALECIMENTO(CARTORIOS)",
+                "PRI SINTOMAS": "INTEGRA PRI SINTOMAS DATA",
+                "OBITO COVID": "DATA OBITO",
                 "HOSPITALIZACAO COVID": "DATA HOSPITALIZACAO",
                 "UTI COVID": "DATA UTI",
             }
@@ -48,9 +49,11 @@ class PerformMatching:
         '''
             Perform the matching mechanism to find the case-control pairs.
 
-            After selecting all individuals who took the specified vaccine at a day
-            during cohort, we find all possible controls for the cases each day. 
-            Matching is performed using sex and age variables (to include HDI).
+            After selecting all individuals who took the specified vaccine at the current
+            day during cohort which does not have a positive test (or either 
+            death or hospitalization) before the vaccination day, we find all possible
+            controls for the eligible cases each day. Matching is performed using sex, age
+            and HDI. Pairs are between two health individuals without preexisting infection.
 
             Args:
                 output_folder:
@@ -87,19 +90,16 @@ class PerformMatching:
         control_used = defaultdict(lambda: False)
         control_reservoir = defaultdict(lambda: [])
         control_dates = {
-            "D1": defaultdict(lambda: -1),
-            "D2": defaultdict(lambda: -1),
-            "DEATH COVID": defaultdict(lambda: -1),
-            "DEATH GENERAL": defaultdict(lambda: -1),
-            "HOSPITALIZATION COVID": defaultdict(lambda: -1),
-            "UTI COVID": defaultdict(lambda: -1),
+            "D1": defaultdict(lambda: -1), "D2": defaultdict(lambda: -1), "PRI SINTOMAS": defaultdict(lambda: -1),
+            "DEATH COVID": defaultdict(lambda: -1), "DEATH GENERAL": defaultdict(lambda: -1),
+            "HOSPITALIZATION COVID": defaultdict(lambda: -1), "UTI COVID": defaultdict(lambda: -1),
         }
         # Collect dates for the whole population considered (fill 'control_reservoir' and 'control_dates')
         aux.collect_dates_for_cohort(df_pop, control_reservoir, control_dates, HDI_index=HDI_index, col_names=self.colnames)
         # According to the given seed shuffle the potential controls.
         aux.rearrange_controls(control_reservoir, seed)
         # Perform matching based on the variables defined for matching (age, sex) -> maybe include the 'IDH'.
-        self.pareados, self.matched = aux.perform_matching(datelst, df_vac, control_reservoir, control_used, control_dates, HDI_index, self.colnames)
+        self.pareados, self.matched = aux.perform_matching(datelst, df_vac, control_reservoir, control_used, control_dates, HDI_index, self.cohort, self.colnames)
     
         self.events_df = aux.get_events(df_pop, self.pareados, self.matched, self.colnames)
         df_pop["PAREADO"] = df_pop["CPF"].apply(lambda x: True if self.matched[x] else False)
@@ -127,6 +127,7 @@ class PerformMatching:
 
         # --> Reduce hospitalization dates to only one (the first date in the cohort period)
         self.events_df["DATA HOSPITALIZACAO"] = self.events_df["DATA HOSPITALIZACAO"].apply(lambda x: aux.new_hospitalization_date(x, self.cohort))
+        self.events_df["DATA UTI"] = self.events_df["DATA UTI"].apply(lambda x: aux.new_hospitalization_date(x, self.cohort))
         
         events_col = {
             "D1": "DATA D1",

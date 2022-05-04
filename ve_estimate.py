@@ -69,7 +69,12 @@ for cur_event in event_lst:
 
 # --> Calculate the vaccine effectiveness by using the percentile bootstrap over the results of the Kaplan-Meier estimator.
 for cur_event in event_lst:
-    cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, t_min)
+    if hdi_index!=0:
+        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, True, t_min)
+        cur_event.km_curves(survival_folder, seed, True, t_min)
+    else:
+        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, False, t_min)
+        cur_event.km_curves(survival_folder, seed, False, t_min)
 
 # --> Create folder to store output
 seed_folder = os.path.join(survival_folder, f"SEED{seed}")

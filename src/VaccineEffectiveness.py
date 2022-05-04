@@ -27,6 +27,11 @@ class VaccineEffectiveness:
         self.cohort = cohort
         self.event = event
 
+        # Define HDI variables:
+        #self.fschema["IDH 0"] = self.fschema["IDH2010"].apply(lambda x: aux.f_hdi_range(x, [0.0, 1.0], include_nans=True))
+        #self.fschema["IDH 1"] = self.fschema["IDH2010"].apply(lambda x: aux.f_hdi_range(x, [0.0, 0.550, 0.70, 0.80, 1.00]))
+        #self.fschema["IDH 2"] = self.fschema["IDH2010"].apply(lambda x: aux.f_hdi_range(x, [0.0, 0.499, 0.599, 0.699, 0.799, 1.0]))
+
     def initialize_objects(self):
         '''
             Description.
@@ -42,7 +47,11 @@ class VaccineEffectiveness:
             "D1_FEMALE": dict(template), "D2_FEMALE": dict(template),
             "D1_6069": dict(template), "D2_6069": dict(template),
             "D1_7079": dict(template), "D2_7079": dict(template),
-            "D1_80+": dict(template), "D2_80+": dict(template)
+            "D1_80+": dict(template), "D2_80+": dict(template),
+            "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template),
+            "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
+            "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template),
+            "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
         }
         for key in self.km_objects.keys():
             self.km_objects[key]["CASO"] = KaplanMeierFitter()
@@ -52,21 +61,28 @@ class VaccineEffectiveness:
         self.sub_data = {
             "D1": dict(template), "D2": dict(template), "D1_MALE": dict(template), "D2_MALE": dict(template),
             "D1_FEMALE": dict(template), "D2_FEMALE": dict(template), "D1_6069": dict(template), "D2_6069": dict(template),
-            "D1_7079": dict(template), "D2_7079": dict(template), "D1_80+": dict(template), "D2_80+": dict(template)
+            "D1_7079": dict(template), "D2_7079": dict(template), "D1_80+": dict(template), "D2_80+": dict(template),
+            "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template), "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
+            "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template), "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
         }
 
         # Store final tables regarding Kaplan-Meier curves.
         self.etables = {
-            "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None,
-            "D1_FEMALE": None, "D2_FEMALE": None, "D1_6069": None, "D2_6069": None,
-            "D1_7079": None, "D2_7079": None, "D1_80+": None, "D2_80+": None
+            "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None, "D1_FEMALE": None, 
+            "D2_FEMALE": None, "D1_6069": None, "D2_6069": None, "D1_7079": None, 
+            "D2_7079": None, "D1_80+": None, "D2_80+": None, "D1_HDI_000_059": None, 
+            "D1_HDI_060_1": None, "D2_HDI_000_059": None, "D2_HDI_060_1": None,
+            "D1_HDI_000_050": None,  "D1_HDI_050_1": None, "D2_HDI_000_050": None, "D2_HDI_050_1": None,
         }
 
         # Store figure/axis objects regarding Kaplan-Meier curves.
         self.cumul_figures = {
             "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None,
             "D1_FEMALE": None, "D2_FEMALE": None, "D1_6069": None, "D2_6069": None,
-            "D1_7079": None, "D2_7079": None, "D1_80+": None, "D2_80+": None
+            "D1_7079": None, "D2_7079": None, "D1_80+": None, "D2_80+": None, 
+            "D1_HDI_000_059": None, "D1_HDI_060_1": None, "D2_HDI_000_059": None, 
+            "D2_HDI_060_1": None, "D1_HDI_000_050": None,  "D1_HDI_050_1": None, 
+            "D2_HDI_000_050": None, "D2_HDI_050_1": None,
         }
 
     def load_survival_data(self, survival_folder, vaccine="CORONAVAC", seed=1):
@@ -76,7 +92,7 @@ class VaccineEffectiveness:
         fname = os.path.join(survival_folder, f"SURVIVAL_{vaccine}_D1D2_{self.event}_{seed}.parquet")
         self.fsurvival = pd.read_parquet(fname)
         # Obtain demographic data
-        self.fsurvival = self.fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO"]], on="CPF", how="left")
+        self.fsurvival = self.fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
 
     def fit_data(self, t_min):
         '''
@@ -89,7 +105,7 @@ class VaccineEffectiveness:
         aux.fit_age(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (70,79), self.event, t_min)
         aux.fit_age(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (80,200), self.event, t_min)
 
-    def bootstrap_ve(self, survival_folder, n_resampling, seed, t_min=0):
+    def bootstrap_ve(self, survival_folder, n_resampling, seed, hdi=True, t_min=0):
         '''
             Calculate the vaccine effectiveness using the Kaplan-Meier estimate and the confidence intervals
             using the percentile bootstrap method.
@@ -103,7 +119,7 @@ class VaccineEffectiveness:
         '''
         fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}.parquet")
         fsurvival = pd.read_parquet(fname_survival)
-        fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO"]], on="CPF", how="left")
+        fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
 
         caso = fsurvival[fsurvival["TIPO"]=="CASO"]
         controle = fsurvival[fsurvival["TIPO"]=="CONTROLE"]
@@ -113,7 +129,10 @@ class VaccineEffectiveness:
         self.bootstrap_results = {
             "D1": [], "D2": [], "D1_MALE": [], "D2_MALE": [],
             "D1_FEMALE": [], "D2_FEMALE": [], "D1_6069": [], "D2_6069": [],
-            "D1_7079": [], "D2_7079": [], "D1_80+": [], "D2_80+": []
+            "D1_7079": [], "D2_7079": [], "D1_80+": [], "D2_80+": [], 
+            "D1_HDI_000_059": [], "D1_HDI_060_1": [], "D2_HDI_000_059": [], 
+            "D2_HDI_060_1": [], "D1_HDI_000_050": [], "D2_HDI_000_050": [],
+            "D1_HDI_050_1": [], "D2_HDI_050_1": [],
         }
         
         for ns in tqdm(range(n_resampling)):
@@ -132,10 +151,15 @@ class VaccineEffectiveness:
             aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event, t_min)
             aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event, t_min)
             aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event, t_min)
+            if hdi:
+                aux.fit_hdi(r_fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.0,0.5,1.0])
+                aux.fit_hdi(r_fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.0,0.590,1.0])
 
             # --> Calculate VE for each case
             ev_table = aux.generate_table(km_objects)
             for key in self.bootstrap_results.keys():
+                if ev_table[key] is None:
+                    continue
                 ev_table[key] = ev_table[key].set_index("t")
                 self.bootstrap_results[key].append((1 - (ev_table[key]["KM(caso)"]/ev_table[key]["KM(controle)"])))
                 self.etables[key] = ev_table[key]
@@ -144,11 +168,12 @@ class VaccineEffectiveness:
         self.generate_curves(km_objects)
         
         for key in self.bootstrap_results.keys():
+            if self.bootstrap_results[key] is None:
+                continue
             self.bootstrap_results[key] = pd.concat(self.bootstrap_results[key], axis=1)
-            self.bootstrap_results[key]["VE_temp"] = self.bootstrap_results[key].apply(lambda x: (np.percentile(x.array, 2.5), np.mean(x.array), np.percentile(x.array, 97.5)), axis=1)
-            self.bootstrap_results[key]["VE_lower_0.95"] = self.bootstrap_results[key]["VE_temp"].apply(lambda x: x[0])
-            self.bootstrap_results[key]["VE"] = self.bootstrap_results[key]["VE_temp"].apply(lambda x: x[1])
-            self.bootstrap_results[key]["VE_upper_0.95"] = self.bootstrap_results[key]["VE_temp"].apply(lambda x: x[2])
+            self.bootstrap_results[key]["VE_lower_0.95"] = self.bootstrap_results[key].apply(lambda x: np.percentile(x.to_numpy()[~np.isnan(x.to_numpy())], 2.5) if x.to_numpy()[~np.isnan(x.to_numpy())].shape[0]!=0 else np.nan, axis=1)
+            self.bootstrap_results[key]["VE"] = self.bootstrap_results[key].apply(lambda x: np.mean( x.to_numpy()[~np.isnan(x.to_numpy())] ) if x.to_numpy()[~np.isnan(x.to_numpy())].shape[0]!=0 else np.nan, axis=1)
+            self.bootstrap_results[key]["VE_upper_0.95"] = self.bootstrap_results[key].apply(lambda x: np.percentile(x.to_numpy()[~np.isnan(x.to_numpy())], 97.5) if x.to_numpy()[~np.isnan(x.to_numpy())].shape[0]!=0 else np.nan, axis=1)
             self.bootstrap_results[key] = self.bootstrap_results[key][["VE_lower_0.95", "VE", "VE_upper_0.95"]]
         
     
@@ -157,6 +182,8 @@ class VaccineEffectiveness:
         
         '''
         for key in self.etables.keys():
+            if self.etables[key] is None:
+                continue
             event_caso = self.km_objects[key]["CASO"].event_table.reset_index().add_suffix("(caso)").rename({"event_at(caso)": "t"}, axis=1)
             event_controle = self.km_objects[key]["CONTROLE"].event_table.reset_index().add_suffix("(controle)").rename({"event_at(controle)": "t"}, axis=1)
             S_caso = self.km_objects[key]["CASO"].cumulative_density_.reset_index().rename({'timeline': "t"}, axis=1)
@@ -186,6 +213,8 @@ class VaccineEffectiveness:
             km_obj = self.km_objects
 
         for key in km_obj.keys():
+            if km_obj[key] is None:
+                continue
             kmf_caso = km_obj[key]["CASO"]
             kmf_controle = km_obj[key]["CONTROLE"]
 
@@ -218,6 +247,16 @@ class VaccineEffectiveness:
             self.bootstrap_results["D2_7079"].to_excel(writer, sheet_name=f"D2_7079")
             self.bootstrap_results["D1_80+"].to_excel(writer, sheet_name=f"D1_80+")
             self.bootstrap_results["D2_80+"].to_excel(writer, sheet_name=f"D2_80+")
+            if self.bootstrap_results["D1_HDI_000_059"] is not None:
+                self.bootstrap_results["D1_HDI_000_059"].to_excel(writer, sheet_name=f"D1_HDI_000_059")
+                self.bootstrap_results["D2_HDI_000_059"].to_excel(writer, sheet_name=f"D2_HDI_000_059")
+                self.bootstrap_results["D1_HDI_060_1"].to_excel(writer, sheet_name=f"D1_HDI_060_1")
+                self.bootstrap_results["D2_HDI_060_1"].to_excel(writer, sheet_name=f"D2_HDI_060_1")
+            if self.bootstrap_results["D1_HDI_000_050"] is not None:
+                self.bootstrap_results["D1_HDI_000_050"].to_excel(writer, sheet_name=f"D1_HDI_000_050")
+                self.bootstrap_results["D2_HDI_000_050"].to_excel(writer, sheet_name=f"D2_HDI_000_050")
+                self.bootstrap_results["D1_HDI_050_1"].to_excel(writer, sheet_name=f"D1_HDI_050_1")
+                self.bootstrap_results["D2_HDI_050_1"].to_excel(writer, sheet_name=f"D2_HDI_050_1")
         with pd.ExcelWriter(os.path.join(seed_folder, f"KM_events_{t_min}_{self.event}.xlsx")) as writer:
             self.etables["D1"].to_excel(writer, sheet_name=f"KM_D1")
             self.etables["D2"].to_excel(writer, sheet_name=f"KM_D2")
@@ -231,10 +270,52 @@ class VaccineEffectiveness:
             self.etables["D2_7079"].to_excel(writer, sheet_name=f"KM_D2_7079")
             self.etables["D1_80+"].to_excel(writer, sheet_name=f"KM_D1_80+")
             self.etables["D2_80+"].to_excel(writer, sheet_name=f"KM_D2_80+")
+            if self.etables["D1_HDI_000_059"] is not None:
+                self.etables["D1_HDI_000_059"].to_excel(writer, sheet_name=f"D1_HDI_000_059")
+                self.etables["D2_HDI_000_059"].to_excel(writer, sheet_name=f"D2_HDI_000_059")
+                self.etables["D1_HDI_060_1"].to_excel(writer, sheet_name=f"D1_HDI_060_1")
+                self.etables["D2_HDI_060_1"].to_excel(writer, sheet_name=f"D2_HDI_060_1")
+            if self.etables["D1_HDI_000_050"] is not None:
+                self.etables["D1_HDI_000_050"].to_excel(writer, sheet_name=f"D1_HDI_000_050")
+                self.etables["D2_HDI_000_050"].to_excel(writer, sheet_name=f"D2_HDI_000_050")
+                self.etables["D1_HDI_050_1"].to_excel(writer, sheet_name=f"D1_HDI_050_1")
+                self.etables["D2_HDI_050_1"].to_excel(writer, sheet_name=f"D2_HDI_050_1")
         
         # curves
         for key in self.cumul_figures.keys():
             self.cumul_figures[key][0].savefig(os.path.join(seed_folder, "FIGS", f"{key}_{t_min}.pdf"))
+
+    def km_curves(self, survival_folder, seed, hdi=True, t_min=0):
+        '''
+        
+        '''
+        fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}.parquet")
+        fsurvival = pd.read_parquet(fname_survival)
+        fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
+
+        caso = fsurvival[fsurvival["TIPO"]=="CASO"]
+        controle = fsurvival[fsurvival["TIPO"]=="CONTROLE"]
+
+        km_objects, subdata = aux.create_km_objects()
+        # Fit data
+        aux.fit_dose(fsurvival, km_objects, subdata, self.event, t_min)
+        aux.fit_sex(fsurvival, km_objects, subdata, "M", self.event, t_min)
+        aux.fit_sex(fsurvival, km_objects, subdata, "F", self.event, t_min)
+        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event, t_min)
+        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event, t_min)
+        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event, t_min)
+        if hdi:
+            aux.fit_hdi(fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.00,0.50,1.00])
+            aux.fit_hdi(fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.00,0.59,1.00])
+
+        # --> Calculate VE for each case
+        ev_table = aux.generate_table(km_objects)
+        for key in ev_table.keys():
+            self.etables[key] = ev_table[key]
+            self.bootstrap_results[key]["VE"] = 1 - (ev_table[key]["KM(caso)"]/ev_table[key]["KM(controle)"])
+
+        # --> Generate the Kaplan-Meier curves
+        self.generate_curves(km_objects)
             
 
 

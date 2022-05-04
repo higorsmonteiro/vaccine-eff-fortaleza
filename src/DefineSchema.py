@@ -15,6 +15,10 @@ class DefineSchema:
         '''
             Using the path to the files of processed databases and linkage data, create the final schema
             for the matching database.
+
+            Args:
+                base_folder:
+                    String. Path string to the data folder where the parquet folder is located.
         '''
         self.base_folder = base_folder
 
@@ -37,6 +41,9 @@ class DefineSchema:
     def load_linked_data(self, folder=os.path.join("output", "data", "LINKAGE")):
         '''
             Load all linkage parquet files to merge with the final data.
+
+            Args:
+                folder: Complement folder (from the project folder) to locate the linkage parquet files.
         '''
         self.vacineja_vacinados_df = pd.read_parquet(os.path.join(folder, "VACINEJA_VACINADOS.parquet"))
         self.vacineja_tests_df = pd.read_parquet(os.path.join(folder, "VACINEJA_INTEGRASUS.parquet"))
@@ -61,8 +68,14 @@ class DefineSchema:
         to_sivep = defaultdict(lambda: np.nan, zip(found_sivep["cpf(VACINEJA)"], found_sivep["SIVEP"]))
 
         pos_tests = self.tests_df[self.tests_df["resultado_final_exame"]=="POSITIVO"]
+        # Metadata of the Covid-19 tests
+        id_resultado = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["resultado_final_exame"]))
         id_coleta = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_coleta_exame"]))
-        id_solicitacao = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_coleta_exame"]))
+        id_solicitacao = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_solicitacao_exame"]))
+        id_sintomas = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_inicio_sintomas_nova"]))
+        id_sivep = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_internacao_sivep"]))
+        id_uti = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_entrada_uti_sivep"]))
+        id_obito = defaultdict(lambda: np.nan, zip(pos_tests["id"], pos_tests["data_obito"]))
 
         # --> Join
         self.vacineja_df["cpf LINKAGE VACINADOS"] = self.vacineja_df["cpf"].apply(lambda x: to_vacinados[x])
@@ -72,10 +85,16 @@ class DefineSchema:
         self.vacineja_df["primary key LINKAGE SIVEP"] = self.vacineja_df["cpf"].apply(lambda x: to_sivep[x])
         self.vacineja_df = self.vacineja_df.merge(self.bairro_df[["NOME_BAIRRO", "IDH2010", "SR"]], left_on="bairro", right_on="NOME_BAIRRO", how="left")
         
+        # --> Create columns on IntegraSUS
         self.tests_df = self.tests_df.set_index("id")
         self.vacineja_df["TESTE POSITIVO ANTES COORTE"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: aux.select_indexes(self.tests_df, x) if type(x)!=float else False)
-        self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_coleta[cur_id] for cur_id in x] if type(x)!=float else np.nan)
-        self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [id_solicitacao[cur_id] for cur_id in x] if type(x)!=float else np.nan)
+        self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_coleta[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_solicitacao[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["INTEGRA PRI SINTOMAS DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_sintomas[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["INTEGRA HOSPITALIZACAO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_sivep[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["INTEGRA UTI DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_uti[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["INTEGRA OBITO DATA"] = self.vacineja_df["id LINKAGE INTEGRASUS"].apply(lambda x: [ id_obito[cur_id] for cur_id in x ] if type(x)!=float else np.nan)
+        self.vacineja_df["INTEGRA OBITO DATA"] = self.vacineja_df["INTEGRA OBITO DATA"].apply(lambda x: x[0] if np.any(pd.notna(x)) else np.nan)
         
     def create_final_schema(self, cohort=(dt.datetime(2021, 1, 21), dt.datetime(2021, 8, 31)), return_=True):
         '''
@@ -147,6 +166,10 @@ class DefineSchema:
         # Save the dates of positive Covid-19 tests based on sampling date and solicitation date.
         self.vacineja_df["POSITIVOS COLETA DATA"] = self.vacineja_df["POSITIVOS COLETA DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
         self.vacineja_df["POSITIVOS SOLICITACAO DATA"] = self.vacineja_df["POSITIVOS SOLICITACAO DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+        self.vacineja_df["INTEGRA PRI SINTOMAS DATA"] = self.vacineja_df["INTEGRA PRI SINTOMAS DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+        self.vacineja_df["INTEGRA HOSPITALIZACAO DATA"] = self.vacineja_df["INTEGRA HOSPITALIZACAO DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+        self.vacineja_df["INTEGRA UTI DATA"] = self.vacineja_df["INTEGRA UTI DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
+        self.vacineja_df["INTEGRA OBITO DATA"] = self.vacineja_df["INTEGRA OBITO DATA"].apply(lambda x: np.nan if np.all(pd.isna(x)) else x)
 
         # Define vaccination status during cohort.
         new_col_cohort = "STATUS VACINACAO DURANTE COORTE"
@@ -163,8 +186,23 @@ class DefineSchema:
 
         # Define hospitalization date
         col = ["DATA NOTIFICACAO SIVEP", "DATA INTERNACAO"]
-        self.vacineja_df["DATA HOSPITALIZACAO"] = self.vacineja_df[col].apply(lambda x: x[col[1]] if np.any(pd.notna(x[col[1]])) else (x[col[0]] if np.any(pd.notna(x[col[0]])) else np.nan), axis=1)
-        
+        f = lambda x: x[col[1]] if np.any(pd.notna(x[col[1]])) else (x[col[0]] if np.any(pd.notna(x[col[0]])) else np.nan)
+        self.vacineja_df["DATA HOSPITALIZACAO"] = self.vacineja_df[col].apply(f, axis=1)
+        col = ["DATA HOSPITALIZACAO", "INTEGRA HOSPITALIZACAO DATA"]
+        f = lambda x: x[col[0]]+x[col[1]] if np.any(pd.notna(x[col[0]])) and np.any(pd.notna(x[col[1]])) else (  (x[col[0]]) if np.any(pd.notna(x[col[0]])) and np.any(pd.isna(x[col[1]])) else ( x[col[1]] if np.any(pd.notna(x[col[1]]))and np.any(pd.isna(x[col[0]])) else np.nan ))
+        self.vacineja_df["DATA HOSPITALIZACAO"] = self.vacineja_df[col].apply(f, axis=1)
+
+        # Uniformize death date
+        col = ["DATA OBITO", "INTEGRA OBITO DATA"]
+        f = lambda x: x[col[0]] if np.any(pd.notna(x[col[0]])) else (x[col[1]] if np.any(pd.notna(x[col[1]])) else np.nan)
+        self.vacineja_df["DATA OBITO"] = self.vacineja_df[col].apply(f, axis=1)
+
+        # Uniformize ICU date
+        col = ["DATA UTI", "INTEGRA UTI DATA"]
+        self.vacineja_df["DATA UTI"] = self.vacineja_df["DATA UTI"].apply(lambda x: [x] if pd.notna(x) else np.nan)
+        f = lambda x: x[col[0]]+x[col[1]] if np.any(pd.notna(x[col[0]])) and np.any(pd.notna(x[col[1]])) else ( x[col[0]] if np.any(pd.notna(x[col[0]])) and np.any(pd.isna(x[col[1]])) else ( x[col[1]] if np.any(pd.notna(x[col[1]]))and np.any(pd.isna(x[col[0]])) else np.nan ))
+        self.vacineja_df["DATA UTI"] = self.vacineja_df[col].apply(f, axis=1)
+
         # Death before cohort
         subcol = ["DATA OBITO", "DATA FALECIMENTO(CARTORIOS)"]
         self.vacineja_df["OBITO ANTES COORTE"] = self.vacineja_df[subcol].apply(lambda x: True if pd.notna(x[subcol[0]]) and x[subcol[0]]<cohort[0] else ( True if pd.notna(x[subcol[1]]) and x[subcol[1]]<cohort[0] else False), axis=1)

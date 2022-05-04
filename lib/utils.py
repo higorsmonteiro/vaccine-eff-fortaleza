@@ -7,13 +7,28 @@ import seaborn as sns
 from datetime import date, timedelta
 from collections import defaultdict
 
-def replace_string(string):
+def replace_string(string, sep=''):
     '''
         Return the input string without any special character and numbers.
     '''
-    new_string = ''.join([char.upper() for char in string if char.isalnum()])
-    new_string = ''.join([char.upper() for char in new_string if not char.isdigit()])
+    if sep=='':
+        new_string = sep.join([char.upper() for char in string if char.isalnum()])
+        new_string = sep.join([char.upper() for char in new_string if not char.isdigit()])
+    elif sep==' ':
+        new_string = []
+        string_lst = string.split(sep)
+        for s in string_lst:
+            new_string.append(''.join([char.upper() for char in s if char.isalnum()]))
+        new_string = sep.join(new_string)
     return new_string
+
+#def replace_string(string):
+#    '''
+#        Return the input string without any special character and numbers.
+#    '''
+#    new_string = ''.join([char.upper() for char in string if char.isalnum()])
+#    new_string = ''.join([char.upper() for char in new_string if not char.isdigit()])
+#    return new_string
 
 def replace_string_hash(string):
     '''

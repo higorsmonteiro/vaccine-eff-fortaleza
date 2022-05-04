@@ -117,115 +117,115 @@ class ProcessingAndLinkage:
             self.linkage_obitos_cartorios.to_parquet(os.path.join(fpath, "VACINEJA_OBITO_CARTORIO.parquet"))
 
     # --> DELETE
-    def init_integrasus(self, init_cohort=dt.date(2021, 1, 21), return_=True):
-        '''
-            Load and transform IntegraSUS data and find all individuals from records in Vacine Já.
-        '''
-        testes_integra_path = os.path.join(self.path_to_data["TESTES COVID-19 INTEGRA"], self.name_of_files["TESTES COVID-19 INTEGRA"])
-        self.tests_df = pd.read_stata(testes_integra_path, convert_categoricals=False)
+    #def init_integrasus(self, init_cohort=dt.date(2021, 1, 21), return_=True):
+    #    '''
+    #        Load and transform IntegraSUS data and find all individuals from records in Vacine Já.
+    #    '''
+    #    testes_integra_path = os.path.join(self.path_to_data["TESTES COVID-19 INTEGRA"], self.name_of_files["TESTES COVID-19 INTEGRA"])
+    #    self.tests_df = pd.read_stata(testes_integra_path, convert_categoricals=False)
 
-        self.tests_df["cpf"] = self.tests_df["cpf"].apply(lambda x: f"{x:11.0f}".replace(" ", "0") if not pd.isna(x) else np.nan)
-        self.tests_df['nome_mae'] = self.tests_df['nome_mae'].apply(lambda x: x if len(x)>0 and not pd.isna(x) else np.nan)
-        self.tests_df["nome tratado"] = self.tests_df["nome_paciente"].apply(lambda x: utils.replace_string(x) if not pd.isna(x) else np.nan)
-        self.tests_df["nome hashcode"] = self.tests_df["nome_paciente"].apply(lambda x: utils.replace_string_hash(x) if not pd.isna(x) else np.nan)
-        self.tests_df["nome mae tratado"] = self.tests_df["nome_mae"].apply(lambda x: utils.replace_string(x) if not pd.isna(x) else np.nan)
-        self.tests_df["nome mae hashcode"] = self.tests_df["nome_mae"].apply(lambda x: utils.replace_string_hash(x) if not pd.isna(x) else np.nan)
-        self.tests_df["cns"] = self.tests_df["cns"].apply(lambda x: x if len(x)!=0 or not pd.isna(x) else np.nan)
+    #    self.tests_df["cpf"] = self.tests_df["cpf"].apply(lambda x: f"{x:11.0f}".replace(" ", "0") if not pd.isna(x) else np.nan)
+    #    self.tests_df['nome_mae'] = self.tests_df['nome_mae'].apply(lambda x: x if len(x)>0 and not pd.isna(x) else np.nan)
+    #    self.tests_df["nome tratado"] = self.tests_df["nome_paciente"].apply(lambda x: utils.replace_string(x) if not pd.isna(x) else np.nan)
+    #    self.tests_df["nome hashcode"] = self.tests_df["nome_paciente"].apply(lambda x: utils.replace_string_hash(x) if not pd.isna(x) else np.nan)
+    #    self.tests_df["nome mae tratado"] = self.tests_df["nome_mae"].apply(lambda x: utils.replace_string(x) if not pd.isna(x) else np.nan)
+    #    self.tests_df["nome mae hashcode"] = self.tests_df["nome_mae"].apply(lambda x: utils.replace_string_hash(x) if not pd.isna(x) else np.nan)
+    #    self.tests_df["cns"] = self.tests_df["cns"].apply(lambda x: x if len(x)!=0 or not pd.isna(x) else np.nan)
 
         # Transform date fields
-        self.tests_df["data_nascimento"] = pd.to_datetime(self.tests_df["data_nascimento"], errors="coerce")
-        self.tests_df["data_coleta_exame"] = pd.to_datetime(self.tests_df["data_coleta_exame"], errors="coerce")
-        self.tests_df["data_inicio_sintomas_nova"] = pd.to_datetime(self.tests_df["data_inicio_sintomas_nova"], errors="coerce")
-        self.tests_df["data_internacao_sivep"] = pd.to_datetime(self.tests_df["data_internacao_sivep"], errors="coerce")
-        self.tests_df["data_entrada_uti_sivep"] = pd.to_datetime(self.tests_df["data_entrada_uti_sivep"], format="%Y/%m/%d", errors="coerce")
-        self.tests_df["data_evolucao_caso_sivep"] = pd.to_datetime(self.tests_df["data_entrada_uti_sivep"], format="%Y/%m/%d", errors="coerce")
-        self.tests_df["data_obito"] = pd.to_datetime(self.tests_df["data_obito"], errors="coerce")
-        self.tests_df["data_resultado_exame"] = pd.to_datetime(self.tests_df["data_resultado_exame"], errors="coerce")
-        self.tests_df["data_solicitacao_exame"] = pd.to_datetime(self.tests_df["data_solicitacao_exame"], errors="coerce")
-        self.tests_df["data_saida_uti_sivep"] = pd.to_datetime(self.tests_df["data_saida_uti_sivep"], format="%Y/%m/%d", errors="coerce")
-        self.tests_df = self.tests_df.dropna(subset=["nome_paciente", "data_nascimento"], axis=0, how="all")
+    #    self.tests_df["data_nascimento"] = pd.to_datetime(self.tests_df["data_nascimento"], errors="coerce")
+    #    self.tests_df["data_coleta_exame"] = pd.to_datetime(self.tests_df["data_coleta_exame"], errors="coerce")
+    #    self.tests_df["data_inicio_sintomas_nova"] = pd.to_datetime(self.tests_df["data_inicio_sintomas_nova"], errors="coerce")
+    #    self.tests_df["data_internacao_sivep"] = pd.to_datetime(self.tests_df["data_internacao_sivep"], errors="coerce")
+    #    self.tests_df["data_entrada_uti_sivep"] = pd.to_datetime(self.tests_df["data_entrada_uti_sivep"], format="%Y/%m/%d", errors="coerce")
+    #    self.tests_df["data_evolucao_caso_sivep"] = pd.to_datetime(self.tests_df["data_entrada_uti_sivep"], format="%Y/%m/%d", errors="coerce")
+    #    self.tests_df["data_obito"] = pd.to_datetime(self.tests_df["data_obito"], errors="coerce")
+    #    self.tests_df["data_resultado_exame"] = pd.to_datetime(self.tests_df["data_resultado_exame"], errors="coerce")
+    #    self.tests_df["data_solicitacao_exame"] = pd.to_datetime(self.tests_df["data_solicitacao_exame"], errors="coerce")
+    #    self.tests_df["data_saida_uti_sivep"] = pd.to_datetime(self.tests_df["data_saida_uti_sivep"], format="%Y/%m/%d", errors="coerce")
+    #    self.tests_df = self.tests_df.dropna(subset=["nome_paciente", "data_nascimento"], axis=0, how="all")
 
         # --> Create primary keys for person
-        f_key = lambda x: x["cpf"] if not pd.isna(x["cpf"]) else str(x["nome tratado"])+str(x["data_nascimento"])
-        self.tests_df["PRIMARY_KEY_PERSON"] = self.tests_df.apply(lambda x: f_key(x), axis=1)
-        # --> Define primary keys for linkage: cpf, NOME+DATANASC, NOMEHASH+DATANASC, NOME+NOMEMAE
-        self.tests_df["NOMENASCIMENTOCHAVE"] = self.tests_df["nome tratado"] + self.tests_df["data_nascimento"].astype(str)
-        self.tests_df["NOMEHASHNASCIMENTOCHAVE"] = self.tests_df["nome hashcode"] + self.tests_df["data_nascimento"].astype(str)
-        self.tests_df["NOMEMAENASCIMENTOCHAVE"] = self.tests_df["nome mae tratado"] + self.tests_df["data_nascimento"].astype(str)
-        self.tests_df["NOMENOMEMAECHAVE"] = self.tests_df["nome tratado"] + self.tests_df["nome mae tratado"]
-        self.tests_df["NOMEMAEHASHNASCIMENTOCHAVE"] = self.tests_df["nome mae hashcode"] + self.tests_df["data_nascimento"].astype(str)
+    #    f_key = lambda x: x["cpf"] if not pd.isna(x["cpf"]) else str(x["nome tratado"])+str(x["data_nascimento"])
+    #    self.tests_df["PRIMARY_KEY_PERSON"] = self.tests_df.apply(lambda x: f_key(x), axis=1)
+    #    # --> Define primary keys for linkage: cpf, NOME+DATANASC, NOMEHASH+DATANASC, NOME+NOMEMAE
+    #    self.tests_df["NOMENASCIMENTOCHAVE"] = self.tests_df["nome tratado"] + self.tests_df["data_nascimento"].astype(str)
+    #    self.tests_df["NOMEHASHNASCIMENTOCHAVE"] = self.tests_df["nome hashcode"] + self.tests_df["data_nascimento"].astype(str)
+    #    self.tests_df["NOMEMAENASCIMENTOCHAVE"] = self.tests_df["nome mae tratado"] + self.tests_df["data_nascimento"].astype(str)
+    #    self.tests_df["NOMENOMEMAECHAVE"] = self.tests_df["nome tratado"] + self.tests_df["nome mae tratado"]
+    #    self.tests_df["NOMEMAEHASHNASCIMENTOCHAVE"] = self.tests_df["nome mae hashcode"] + self.tests_df["data_nascimento"].astype(str)
 
-        col_linkage1 = ["id", "cpf"]
-        col_linkage2 = ["id", "NOMENASCIMENTOCHAVE"]
-        col_linkage3 = ["id", "NOMENOMEMAECHAVE"]
-        col_linkage4 = ["id", "NOMEMAENASCIMENTOCHAVE"]
-        col_linkage5 = ["id", "NOMEHASHNASCIMENTOCHAVE"]
-        col_linkage6 = ["id", "NOMEMAEHASHNASCIMENTOCHAVE"]
+    #    col_linkage1 = ["id", "cpf"]
+    #    col_linkage2 = ["id", "NOMENASCIMENTOCHAVE"]
+    #    col_linkage3 = ["id", "NOMENOMEMAECHAVE"]
+    #    col_linkage4 = ["id", "NOMEMAENASCIMENTOCHAVE"]
+    #    col_linkage5 = ["id", "NOMEHASHNASCIMENTOCHAVE"]
+    #    col_linkage6 = ["id", "NOMEMAEHASHNASCIMENTOCHAVE"]
 
-        linkage1 = self.tests_df[col_linkage1].dropna(subset=["cpf"], axis=0).merge(self.vacineja_df.add_suffix("(vj)")["cpf(vj)"], left_on="cpf", right_on="cpf(vj)", how="left").dropna(subset=["cpf(vj)"], axis=0)
-        linkage2 = self.tests_df[col_linkage2].merge(self.vacineja_df[["cpf", "NOMENASCIMENTOCHAVE"]], on="NOMENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0).dropna(subset=["cpf"], axis=0)
-        linkage3 = self.tests_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
-        linkage4 = self.tests_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-        linkage5 = self.tests_df[col_linkage5].dropna(subset=["NOMEHASHNASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEHASHNASCIMENTOCHAVE"]], on="NOMEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
-        linkage6 = self.tests_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #    linkage1 = self.tests_df[col_linkage1].dropna(subset=["cpf"], axis=0).merge(self.vacineja_df.add_suffix("(vj)")["cpf(vj)"], left_on="cpf", right_on="cpf(vj)", how="left").dropna(subset=["cpf(vj)"], axis=0)
+    #    linkage2 = self.tests_df[col_linkage2].merge(self.vacineja_df[["cpf", "NOMENASCIMENTOCHAVE"]], on="NOMENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0).dropna(subset=["cpf"], axis=0)
+    #    linkage3 = self.tests_df[col_linkage3].dropna(subset=["NOMENOMEMAECHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMENOMEMAECHAVE"]], on="NOMENOMEMAECHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #    linkage4 = self.tests_df[col_linkage4].dropna(subset=["NOMEMAENASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEMAENASCIMENTOCHAVE"]], on="NOMEMAENASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #    linkage5 = self.tests_df[col_linkage5].dropna(subset=["NOMEHASHNASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEHASHNASCIMENTOCHAVE"]], on="NOMEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
+    #    linkage6 = self.tests_df[col_linkage6].dropna(subset=["NOMEMAEHASHNASCIMENTOCHAVE"], axis=0).merge(self.vacineja_df[["cpf", "NOMEMAEHASHNASCIMENTOCHAVE"]], on="NOMEMAEHASHNASCIMENTOCHAVE", how="left").dropna(subset=["cpf"], axis=0)
 
-        self.id_to_vacinejacpf = defaultdict(lambda: np.nan)
-        self.id_to_vacinejacpf.update(zip(linkage1["id"], linkage1["cpf"]))
-        self.id_to_vacinejacpf.update(zip(linkage2["id"], linkage2["cpf"]))
-        self.id_to_vacinejacpf.update(zip(linkage3["id"], linkage3["cpf"]))
-        self.id_to_vacinejacpf.update(zip(linkage4["id"], linkage4["cpf"]))
-        self.id_to_vacinejacpf.update(zip(linkage5["id"], linkage5["cpf"]))
-        self.id_to_vacinejacpf.update(zip(linkage6["id"], linkage6["cpf"]))
+    #    self.id_to_vacinejacpf = defaultdict(lambda: np.nan)
+    #    self.id_to_vacinejacpf.update(zip(linkage1["id"], linkage1["cpf"]))
+    #    self.id_to_vacinejacpf.update(zip(linkage2["id"], linkage2["cpf"]))
+    #    self.id_to_vacinejacpf.update(zip(linkage3["id"], linkage3["cpf"]))
+    #    self.id_to_vacinejacpf.update(zip(linkage4["id"], linkage4["cpf"]))
+    #    self.id_to_vacinejacpf.update(zip(linkage5["id"], linkage5["cpf"]))
+    #    self.id_to_vacinejacpf.update(zip(linkage6["id"], linkage6["cpf"]))
 
-        self.tests_df["cpf(VACINEJA)"] = self.tests_df["id"].apply(lambda x: self.id_to_vacinejacpf[x])
+    #    self.tests_df["cpf(VACINEJA)"] = self.tests_df["id"].apply(lambda x: self.id_to_vacinejacpf[x])
 
         # To verify if symptoms and testing (check whether is positive later) were done before cohort.
-        self.tests_df["SINTOMAS ANTES COORTE"] = self.tests_df["data_inicio_sintomas_nova"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
-        self.tests_df["SOLICITACAO ANTES COORTE"] = self.tests_df["data_solicitacao_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
-        self.tests_df["COLETA ANTES COORTE"] = self.tests_df["data_coleta_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
+    #    self.tests_df["SINTOMAS ANTES COORTE"] = self.tests_df["data_inicio_sintomas_nova"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
+    #    self.tests_df["SOLICITACAO ANTES COORTE"] = self.tests_df["data_solicitacao_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
+    #    self.tests_df["COLETA ANTES COORTE"] = self.tests_df["data_coleta_exame"].apply(lambda x: "SIM" if not pd.isna(x) and x<init_cohort else "NAO")
         
         # Now classify each individual as YES or NO depending if the person has positive test before cohort or not.
-        self.pos_antes_cohort_sint = defaultdict(lambda:"NAO")
-        self.pos_antes_cohort_sol = defaultdict(lambda:"NAO")
-        self.pos_antes_cohort_col = defaultdict(lambda:"NAO")
+    #    self.pos_antes_cohort_sint = defaultdict(lambda:"NAO")
+    #    self.pos_antes_cohort_sol = defaultdict(lambda:"NAO")
+    #    self.pos_antes_cohort_col = defaultdict(lambda:"NAO")
         
-        person_grouped = self.tests_df.groupby("PRIMARY_KEY_PERSON")
-        n_records = person_grouped.count()["id"].reset_index()
-        one_record_people = n_records[n_records["id"]==1]["PRIMARY_KEY_PERSON"]
-        mult_record_people = n_records[n_records["id"]>1]["PRIMARY_KEY_PERSON"]
+    #    person_grouped = self.tests_df.groupby("PRIMARY_KEY_PERSON")
+    #    n_records = person_grouped.count()["id"].reset_index()
+    #    one_record_people = n_records[n_records["id"]==1]["PRIMARY_KEY_PERSON"]
+    #    mult_record_people = n_records[n_records["id"]>1]["PRIMARY_KEY_PERSON"]
 
         # Individuals with a single record
-        one_rec_tests = self.tests_df[self.tests_df["PRIMARY_KEY_PERSON"].isin(one_record_people)]
-        subcol = ["resultado_final_exame", "SINTOMAS ANTES COORTE", "SOLICITACAO ANTES COORTE", "COLETA ANTES COORTE"]
-        one_rec_tests["INFO COORTE SINTOMAS"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[1]]=="SIM" else "NAO", axis=1)
-        one_rec_tests["INFO COORTE SOLICITACAO"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[2]]=="SIM" else "NAO", axis=1)
-        one_rec_tests["INFO COORTE COLETA"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[3]]=="SIM" else "NAO", axis=1)
+    #    one_rec_tests = self.tests_df[self.tests_df["PRIMARY_KEY_PERSON"].isin(one_record_people)]
+    #    subcol = ["resultado_final_exame", "SINTOMAS ANTES COORTE", "SOLICITACAO ANTES COORTE", "COLETA ANTES COORTE"]
+    #    one_rec_tests["INFO COORTE SINTOMAS"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[1]]=="SIM" else "NAO", axis=1)
+    #    one_rec_tests["INFO COORTE SOLICITACAO"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[2]]=="SIM" else "NAO", axis=1)
+    #    one_rec_tests["INFO COORTE COLETA"] = one_rec_tests[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[3]]=="SIM" else "NAO", axis=1)
 
         # Individuals with multiple records
-        subcol = ["resultado_final_exame", "SINTOMAS ANTES COORTE", "SOLICITACAO ANTES COORTE", "COLETA ANTES COORTE"]
-        for pkey in mult_record_people:
-            sub_df = person_grouped.get_group(pkey)
-            sub_df["INFO COORTE SINTOMAS"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[1]]=="SIM" else "NAO", axis=1)
-            sub_df["INFO COORTE SOLICITACAO"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[2]]=="SIM" else "NAO", axis=1)
-            sub_df["INFO COORTE COLETA"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[3]]=="SIM" else "NAO", axis=1)
-            if np.isin(["SIM"], sub_df["INFO COORTE SINTOMAS"]):
-                self.pos_antes_cohort_sint[pkey] = "SIM"
-            if np.isin(["SIM"], sub_df["INFO COORTE SOLICITACAO"]):
-                self.pos_antes_cohort_sol[pkey] = "SIM"
-            if np.isin(["SIM"], sub_df["INFO COORTE COLETA"]):
-                self.pos_antes_cohort_col[pkey] = "SIM"
+    #   subcol = ["resultado_final_exame", "SINTOMAS ANTES COORTE", "SOLICITACAO ANTES COORTE", "COLETA ANTES COORTE"]
+    #   for pkey in mult_record_people:
+    #       sub_df = person_grouped.get_group(pkey)
+    #       sub_df["INFO COORTE SINTOMAS"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[1]]=="SIM" else "NAO", axis=1)
+    #       sub_df["INFO COORTE SOLICITACAO"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[2]]=="SIM" else "NAO", axis=1)
+    #       sub_df["INFO COORTE COLETA"] = sub_df[subcol].apply(lambda x: "SIM" if x[subcol[0]]=="POSITIVO" and x[subcol[3]]=="SIM" else "NAO", axis=1)
+    #       if np.isin(["SIM"], sub_df["INFO COORTE SINTOMAS"]):
+    #           self.pos_antes_cohort_sint[pkey] = "SIM"
+    #       if np.isin(["SIM"], sub_df["INFO COORTE SOLICITACAO"]):
+    #           self.pos_antes_cohort_sol[pkey] = "SIM"
+    #       if np.isin(["SIM"], sub_df["INFO COORTE COLETA"]):
+    #           self.pos_antes_cohort_col[pkey] = "SIM"
         
-        self.tests_df["INFO COORTE SINTOMAS"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_sint[x])
-        self.tests_df["INFO COORTE SOLICITACAO"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_sol[x])
-        self.tests_df["INFO COORTE COLETA"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_col[x])
+    #    self.tests_df["INFO COORTE SINTOMAS"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_sint[x])
+    #    self.tests_df["INFO COORTE SOLICITACAO"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_sol[x])
+    #    self.tests_df["INFO COORTE COLETA"] = self.tests_df["PRIMARY_KEY_PERSON"].apply(lambda x: self.pos_antes_cohort_col[x])
         
-        subcol = ["id", "cpf(VACINEJA)", 'SINTOMAS ANTES COORTE',
-                  'SOLICITACAO ANTES COORTE', 'COLETA ANTES COORTE',
-                  'INFO COORTE SINTOMAS', 'INFO COORTE SOLICITACAO',
-                  'INFO COORTE COLETA']
-        self.tests_df = self.tests_df[subcol]
+    #    subcol = ["id", "cpf(VACINEJA)", 'SINTOMAS ANTES COORTE',
+    #              'SOLICITACAO ANTES COORTE', 'COLETA ANTES COORTE',
+    #              'INFO COORTE SINTOMAS', 'INFO COORTE SOLICITACAO',
+    #              'INFO COORTE COLETA']
+    #    self.tests_df = self.tests_df[subcol]
 
-        if return_:
-            return self.tests_df
+    #    if return_:
+    #        return self.tests_df
 #
 #    
