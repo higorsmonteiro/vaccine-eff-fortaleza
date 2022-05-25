@@ -1,3 +1,9 @@
+'''
+    Main script for running the matching algorithm. 
+
+    Author: Higor S. Monteiro
+'''
+from ast import arg
 import os
 import argparse
 import pandas as pd
@@ -13,11 +19,13 @@ parser.add_argument("--end", type=str, help=r"End of the cohort - Format: YY-MM-
 parser.add_argument("--suffix", type=str, help=r"Suffix string to contrast between data - Empty string is not valid.")
 parser.add_argument("--vaccine", type=str, help=r"Which vaccine to assess. Valid strings: 'CORONAVAC', 'ASTRAZENECA'.")
 parser.add_argument("--hdi_index", type=str, help=r'''Which categorical division to use for the HDI variable. Valid options 
-                                                      are 0, 1 and 2. Option 0 is the same as no using HDI.''')
+                                                      are 0, 1 and 2. Option 0 is the same as not using HDI.''')
 parser.add_argument("--pop_test", type=str, help=r'''Variable for testing which global population to use for matching. Valid 
                                                     options are 'ALL' and 'VACCINE'. ''', default="ALL")
 parser.add_argument("--seed", type=int, help=r'''Seed for controls.''')
 parser.add_argument("--age_range", type=int, nargs="+", default=(60,200), help=r"Minimum and maximum age to consider when doing the matching.")
+parser.add_argument("--dose", type=str, nargs="+", help=r'''Dose to consider when performing the matching ('DATA D1' or 'DATA D2')''')
+parser.add_argument("--days_after", type=int, default=0, help=r'''Number of days from day zero of an individual's cohort to consider when doing the matching''')
 args = parser.parse_args()
 
 # --> config
@@ -29,6 +37,8 @@ final_cohort = dt.datetime.strptime(args.end, "%Y-%m-%d")
 pop_test = args.pop_test
 hdi_index = args.hdi_index
 age_range = tuple(args.age_range)
+dose = ' '.join(args.dose)
+days_after = args.days_after
 
 # --> Simple checks
 if len(age_range)>2:
@@ -50,8 +60,10 @@ if not os.path.isdir(output_folder):
     os.mkdir(output_folder)
     os.mkdir(os.path.join(output_folder, "SURVIVAL"))
 
-m_obj = PerformMatching(fschema, (init_cohort, final_cohort))
+print(f"Running -> {vaccine}, ages {age_range}, HDI index {hdi_index}, dose {dose}, with days after {days_after} ...")
+
+m_obj = PerformMatching(fschema, vaccine=vaccine, hdi_index=hdi_index, days_after=days_after, cohort=(init_cohort, final_cohort))
 # --> Perform matching
-m_obj.perform_matching(output_folder, vaccine=vaccine, age_range=age_range, HDI_index=hdi_index, seed=seed, pop_test=pop_test)
+m_obj.perform_matching(output_folder, date_str=dose, age_range=age_range, seed=seed, pop_test=pop_test)
 # --> Calculate survival intervals
-m_obj.generate_survival_info(output_folder, seed=seed) 
+m_obj.generate_survival_info_v2(output_folder, date_str=dose, seed=seed) 

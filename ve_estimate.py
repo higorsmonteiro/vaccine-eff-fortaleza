@@ -20,11 +20,13 @@ parser.add_argument("--events", type=str, default="ALL", help=r'''Whether to run
                                                                   only a specific event: 'OBITO', 'HOSPITALIZACAO', 'UTI'.''')
 parser.add_argument("--bootstrap_n", type=int, default=10, help=r'''Number of simulations to perform during the percentile bootstrap 
                                                                     for confidence intervals of the vaccine effectiveness.''')
+parser.add_argument("--dose", type=str, nargs="+", help=r'''Dose to consider when performing the calculation ('D1' or 'D2')''')
+parser.add_argument("--days_after", type=int, default=0, help=r'''Number of days from day zero of an individual's cohort to consider when doing the matching''')
 args = parser.parse_args()
 
 # --> Config
 seed = args.seed
-t_min = args.t_min
+#t_min = args.t_min
 vaccine = args.vaccine
 suffix = args.suffix
 init_cohort = dt.datetime.strptime(args.start, "%Y-%m-%d")
@@ -32,6 +34,8 @@ final_cohort = dt.datetime.strptime(args.end, "%Y-%m-%d")
 hdi_index = args.hdi_index
 events = args.events
 bootstrap_n = args.bootstrap_n
+dose = ' '.join(args.dose)
+days_after = args.days_after
 
 # --> Set up
 init_str = f"{init_cohort.day}{init_cohort.strftime('%b').upper()}{init_cohort.year}"
@@ -49,19 +53,19 @@ if not os.path.isdir(survival_folder):
     raise ValueError("No folder for survival intervals found.")
 if not os.path.isfile(os.path.join(base_path, "output", "data", fname)):
     raise FileNotFoundError("No file for this cohort period.")
-if not os.path.isfile(os.path.join(matching_folder, f"PAREADOS_CPF_{seed}.parquet")):
+if not os.path.isfile(os.path.join(matching_folder, f"PAREADOS_CPF_{dose}_DAY{days_after}_{seed}.parquet")):
     raise FileNotFoundError("No file for matched pairs.")
 
 # ----> Main data to be parsed: pairs file and schema file.
 fschema = pd.read_parquet(os.path.join(base_path, "output", "data", fname))
-pairs = pd.read_parquet(os.path.join(matching_folder, f"PAREADOS_CPF_{seed}.parquet"))
+pairs = pd.read_parquet(os.path.join(matching_folder, f"PAREADOS_CPF_{dose}_DAY{days_after}_{seed}.parquet"))
 
 if events=="ALL":
-    event_lst = [VaccineEffectiveness(fschema, pairs, (init_cohort, final_cohort), event=x) for x in ["OBITO", "HOSPITAL", "UTI"]]
+    event_lst = [VaccineEffectiveness(fschema, pairs, (init_cohort, final_cohort), dose=dose, days_after=days_after, event=x) for x in ["OBITO", "HOSPITAL", "UTI"]]
 else:
     if events not in ["OBITO", "HOSPITALIZACAO", "UTI"]:
         raise ValidationError("Input for variable 'events' is not valid.")
-    event_lst = [VaccineEffectiveness(fschema, pairs, (init_cohort, final_cohort), event=events)]
+    event_lst = [VaccineEffectiveness(fschema, pairs, (init_cohort, final_cohort), dose=dose, days_after=days_after, event=events)]
 
 # --> Initialize objects to hold the information of the fitter.
 for cur_event in event_lst:
@@ -70,11 +74,11 @@ for cur_event in event_lst:
 # --> Calculate the vaccine effectiveness by using the percentile bootstrap over the results of the Kaplan-Meier estimator.
 for cur_event in event_lst:
     if hdi_index!=0:
-        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, True, t_min)
-        cur_event.km_curves(survival_folder, seed, True, t_min)
+        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, True)
+        cur_event.km_curves(survival_folder, seed, True)
     else:
-        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, False, t_min)
-        cur_event.km_curves(survival_folder, seed, False, t_min)
+        cur_event.bootstrap_ve(survival_folder, bootstrap_n, seed, False)
+        cur_event.km_curves(survival_folder, seed, False)
 
 # --> Create folder to store output
 seed_folder = os.path.join(survival_folder, f"SEED{seed}")
@@ -84,5 +88,5 @@ if not os.path.isdir(seed_folder):
 
 # --> Save output
 for cur_event in event_lst:
-    cur_event.generate_output(seed_folder, t_min)
+    cur_event.generate_output(seed_folder)
 

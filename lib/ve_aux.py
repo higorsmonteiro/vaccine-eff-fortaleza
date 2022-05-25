@@ -23,6 +23,18 @@ def fit_dose(df_survival, km_objects, sub_data, event, t_min=0):
     km_objects["D2"]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
     sub_data["D2"]["CONTROLE"] = dff[["CPF"]].copy()
 
+def fit_dose_v2(df_survival, km_objects, sub_data, event):
+    '''
+    
+    '''
+    dff = df_survival[ (df_survival["TIPO"]=="CASO")  &  (df_survival[f"t - {event}"]>=0) ]
+    km_objects["DOSE"]["CASO"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CASO")
+    sub_data["DOSE"]["CASO"] = dff[["CPF"]].copy()
+
+    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE")  &  (df_survival[f"t - {event}"]>=0) ]
+    km_objects["DOSE"]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
+    sub_data["DOSE"]["CONTROLE"] = dff[["CPF"]].copy()
+
 def fit_sex(df_survival, km_objects, sub_data, sex, event, t_min=0):
     '''
     
@@ -55,6 +67,25 @@ def fit_sex(df_survival, km_objects, sub_data, sex, event, t_min=0):
     dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) & (df_survival["SEXO"]==sex) ]
     km_objects[fstring2]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
     sub_data[fstring2]["CONTROLE"] = dff[["CPF"]].copy()
+
+def fit_sex_v2(df_survival, km_objects, sub_data, sex, event):
+    '''
+    
+    '''
+    if sex=="M":
+        fstring = "MALE"
+    else:
+        fstring = "FEMALE"
+    
+    dff = df_survival[ (df_survival["TIPO"]=="CASO")  &  (df_survival[f"t - {event}"]>=0) & (df_survival["SEXO"]==sex) ]
+    km_objects[fstring]["CASO"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CASO")
+    sub_data[fstring]["CASO"] = dff[["CPF"]].copy()
+
+    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE")  &  (df_survival[f"t - {event}"]>=0) & (df_survival["SEXO"]==sex) ]
+    km_objects[fstring]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
+    sub_data[fstring]["CONTROLE"] = dff[["CPF"]].copy()
+
+    
 
 def fit_age(df_survival, pairs_hash, km_objects, sub_data, age, event, t_min):
     '''
@@ -92,6 +123,29 @@ def fit_age(df_survival, pairs_hash, km_objects, sub_data, age, event, t_min):
     # ----> D2 CONTROLE
     dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) ]
     km_objects[string]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
+    sub_data[string]["CONTROLE"] = dff[["CPF"]].copy()
+
+def fit_age_v2(df_survival, pairs_hash, km_objects, sub_data, age, event):
+    '''
+    
+    '''
+    # Select subset of individuals for the given age range
+    casos_cpf = df_survival[(df_survival["TIPO"]=="CASO") & (df_survival["IDADE"]>=age[0]) & (df_survival["IDADE"]<=age[1])]["CPF"].tolist()
+    controles_cpf = [ pairs_hash[cpf] for cpf in casos_cpf ]
+    df_survival = df_survival[df_survival["CPF"].isin(casos_cpf+controles_cpf)]
+
+    # Perform fitting
+    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - {event}"]>=0) ]
+    string = f"{age[0]}{age[1]}"
+    if age[0]==80:
+        string = "80+"
+    # ----> D1 CASO
+    km_objects[string]["CASO"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CASO")
+    sub_data[string]["CASO"] = dff[["CPF"]].copy()
+    
+    # ----> D1 CONTROLE
+    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - {event}"]>=0) ]
+    km_objects[string]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
     sub_data[string]["CONTROLE"] = dff[["CPF"]].copy()
 
 def fit_hdi(df_survival, km_objects, sub_data, event, t_min, hdi_strat=[0.000,0.500,1.000]):
@@ -161,6 +215,44 @@ def fit_hdi(df_survival, km_objects, sub_data, event, t_min, hdi_strat=[0.000,0.
     if dff.shape[0]!=0:
         km_objects[d2_str_upper]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
         sub_data[d2_str_upper]["CONTROLE"] = dff[["CPF"]].copy()
+
+def fit_hdi_v2(df_survival, km_objects, sub_data, event, hdi_strat=[0.000,0.500,1.000]):
+    '''
+
+    '''
+    hdi_condition_1 = (df_survival[f"IDH2010"]>=hdi_strat[0]) & (df_survival[f"IDH2010"]<=hdi_strat[1])
+    hdi_condition_2 = (df_survival[f"IDH2010"]>hdi_strat[1]) & (df_survival[f"IDH2010"]<=hdi_strat[2])
+
+    str_lower = "HDI_000_050"
+    str_upper = "HDI_050_1"
+    if hdi_strat[1]==0.59:
+        str_lower = "HDI_000_059"
+        str_upper = "HDI_060_1"
+
+    # ----> CASO
+    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - {event}"]>=0) & hdi_condition_1 ]
+    if dff.shape[0]!=0:
+        km_objects[str_lower]["CASO"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CASO")
+        sub_data[str_lower]["CASO"] = dff[["CPF"]].copy()
+
+    # ----> CONTROLE
+    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - {event}"]>=0) & hdi_condition_1 ]
+    if dff.shape[0]!=0:
+        km_objects[str_lower]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
+        sub_data[str_lower]["CONTROLE"] = dff[["CPF"]].copy()
+
+    
+    # ----> CASO UPPER
+    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - {event}"]>=0) & hdi_condition_2 ]
+    if dff.shape[0]!=0:
+        km_objects[str_upper]["CASO"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CASO")
+        sub_data[str_upper]["CASO"] = dff[["CPF"]].copy()
+
+    # ----> CONTROLE
+    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - {event}"]>=0) & hdi_condition_2 ]
+    if dff.shape[0]!=0:
+        km_objects[str_upper]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
+        sub_data[str_upper]["CONTROLE"] = dff[["CPF"]].copy()
     
 def create_km_objects():
     '''
@@ -172,27 +264,20 @@ def create_km_objects():
     }
     # Store the KaplanMeier objects fitted to each case data.
     km_objects = {
-        "D1": dict(template), "D2": dict(template),
-        "D1_MALE": dict(template), "D2_MALE": dict(template),
-        "D1_FEMALE": dict(template), "D2_FEMALE": dict(template),
-        "D1_6069": dict(template), "D2_6069": dict(template),
-        "D1_7079": dict(template), "D2_7079": dict(template),
-        "D1_80+": dict(template), "D2_80+": dict(template),
-        "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template),
-        "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
-        "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template),
-        "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
+        "DOSE": dict(template), "MALE": dict(template), "FEMALE": dict(template), 
+        "6069": dict(template), "7079": dict(template), "80+": dict(template), 
+        "HDI_000_059": dict(template), "HDI_060_1": dict(template),
+        "HDI_000_050": dict(template), "HDI_050_1": dict(template),
     }
     for key in km_objects.keys():
         km_objects[key]["CASO"] = KaplanMeierFitter()
         km_objects[key]["CONTROLE"] = KaplanMeierFitter()
     
     sub_data = {
-        "D1": dict(template), "D2": dict(template), "D1_MALE": dict(template), "D2_MALE": dict(template),
-        "D1_FEMALE": dict(template), "D2_FEMALE": dict(template), "D1_6069": dict(template), "D2_6069": dict(template),
-        "D1_7079": dict(template), "D2_7079": dict(template), "D1_80+": dict(template), "D2_80+": dict(template),
-        "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template), "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
-        "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template), "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
+        "DOSE": dict(template), "MALE": dict(template), "FEMALE": dict(template), 
+        "6069": dict(template), "7079": dict(template), "80+": dict(template), 
+        "HDI_000_059": dict(template), "HDI_060_1": dict(template),
+        "HDI_000_050": dict(template), "HDI_050_1": dict(template),
     }
     return km_objects, sub_data
 
@@ -202,12 +287,10 @@ def generate_table(km_objects):
     '''
     # Store final tables regarding Kaplan Meier curves.
     etables = {
-        "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None, "D1_FEMALE": None, 
-        "D2_FEMALE": None, "D1_6069": None, "D2_6069": None, "D1_7079": None, 
-        "D2_7079": None, "D1_80+": None, "D2_80+": None, "D1_HDI_000_059": None, 
-        "D1_HDI_060_1": None, "D2_HDI_000_059": None, "D2_HDI_060_1": None,
-        "D1_HDI_000_050": None, 
-        "D1_HDI_050_1": None, "D2_HDI_000_050": None, "D2_HDI_050_1": None,
+        "DOSE": None, "MALE": None, "FEMALE": None, 
+        "6069": None, "7079": None, "80+": None, 
+        "HDI_000_059": None, "HDI_060_1": None,
+        "HDI_000_050": None, "HDI_050_1": None,
     }
 
     for key in etables.keys():

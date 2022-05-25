@@ -18,13 +18,16 @@ from lifelines.plotting import add_at_risk_counts
 import matplotlib.pyplot as plt
 
 class VaccineEffectiveness:
-    def __init__(self, final_schema, pairs_df, cohort, event="OBITO"):
+    def __init__(self, final_schema, pairs_df, cohort, dose="D1", days_after=0, event="OBITO"):
         '''
             Description.
         '''
         self.fschema = final_schema.copy()
+        self.pairs_df = pairs_df.dropna(axis=0)
         self.pairs_hash = dict(zip(pairs_df["CPF CASO"], pairs_df["CPF CONTROLE"]))
         self.cohort = cohort
+        self.dose = dose
+        self.days_after = days_after
         self.event = event
 
         # Define HDI variables:
@@ -42,16 +45,10 @@ class VaccineEffectiveness:
         }
         # Store the KaplanMeier objects fitted to each case data.
         self.km_objects = {
-            "D1": dict(template), "D2": dict(template),
-            "D1_MALE": dict(template), "D2_MALE": dict(template),
-            "D1_FEMALE": dict(template), "D2_FEMALE": dict(template),
-            "D1_6069": dict(template), "D2_6069": dict(template),
-            "D1_7079": dict(template), "D2_7079": dict(template),
-            "D1_80+": dict(template), "D2_80+": dict(template),
-            "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template),
-            "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
-            "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template),
-            "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
+            "DOSE": dict(template), "MALE": dict(template), "FEMALE": dict(template), 
+            "6069": dict(template), "7079": dict(template), "80+": dict(template), 
+            "HDI_000_059": dict(template), "HDI_060_1": dict(template),
+            "HDI_000_050": dict(template), "HDI_050_1": dict(template),
         }
         for key in self.km_objects.keys():
             self.km_objects[key]["CASO"] = KaplanMeierFitter()
@@ -59,37 +56,33 @@ class VaccineEffectiveness:
         
         # Store subsets of data regarding stratifications.
         self.sub_data = {
-            "D1": dict(template), "D2": dict(template), "D1_MALE": dict(template), "D2_MALE": dict(template),
-            "D1_FEMALE": dict(template), "D2_FEMALE": dict(template), "D1_6069": dict(template), "D2_6069": dict(template),
-            "D1_7079": dict(template), "D2_7079": dict(template), "D1_80+": dict(template), "D2_80+": dict(template),
-            "D1_HDI_000_059": dict(template), "D1_HDI_060_1": dict(template), "D2_HDI_000_059": dict(template), "D2_HDI_060_1": dict(template),
-            "D1_HDI_000_050": dict(template), "D1_HDI_050_1": dict(template), "D2_HDI_000_050": dict(template), "D2_HDI_050_1": dict(template),
+            "DOSE": dict(template), "MALE": dict(template), "FEMALE": dict(template), 
+            "6069": dict(template), "7079": dict(template), "80+": dict(template), 
+            "HDI_000_059": dict(template), "HDI_060_1": dict(template),
+            "HDI_000_050": dict(template), "HDI_050_1": dict(template),
         }
 
         # Store final tables regarding Kaplan-Meier curves.
         self.etables = {
-            "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None, "D1_FEMALE": None, 
-            "D2_FEMALE": None, "D1_6069": None, "D2_6069": None, "D1_7079": None, 
-            "D2_7079": None, "D1_80+": None, "D2_80+": None, "D1_HDI_000_059": None, 
-            "D1_HDI_060_1": None, "D2_HDI_000_059": None, "D2_HDI_060_1": None,
-            "D1_HDI_000_050": None,  "D1_HDI_050_1": None, "D2_HDI_000_050": None, "D2_HDI_050_1": None,
+            "DOSE": None, "MALE": None, "FEMALE": None, 
+            "6069": None, "7079": None, "80+": None, 
+            "HDI_000_059": None, "HDI_060_1": None,
+            "HDI_000_050": None, "HDI_050_1": None,
         }
 
         # Store figure/axis objects regarding Kaplan-Meier curves.
         self.cumul_figures = {
-            "D1": None, "D2": None, "D1_MALE": None, "D2_MALE": None,
-            "D1_FEMALE": None, "D2_FEMALE": None, "D1_6069": None, "D2_6069": None,
-            "D1_7079": None, "D2_7079": None, "D1_80+": None, "D2_80+": None, 
-            "D1_HDI_000_059": None, "D1_HDI_060_1": None, "D2_HDI_000_059": None, 
-            "D2_HDI_060_1": None, "D1_HDI_000_050": None,  "D1_HDI_050_1": None, 
-            "D2_HDI_000_050": None, "D2_HDI_050_1": None,
+            "DOSE": None, "MALE": None, "FEMALE": None, 
+            "6069": None, "7079": None, "80+": None, 
+            "HDI_000_059": None, "HDI_060_1": None,
+            "HDI_000_050": None, "HDI_050_1": None,
         }
 
-    def load_survival_data(self, survival_folder, vaccine="CORONAVAC", seed=1):
+    def load_survival_data(self, survival_folder, seed=1):
         '''
             Description.
         '''
-        fname = os.path.join(survival_folder, f"SURVIVAL_{vaccine}_D1D2_{self.event}_{seed}.parquet")
+        fname = os.path.join(survival_folder, f"SURVIVAL_{self.dose}_{self.event}_DAY{self.days_after}_{seed}.parquet")
         self.fsurvival = pd.read_parquet(fname)
         # Obtain demographic data
         self.fsurvival = self.fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
@@ -98,14 +91,14 @@ class VaccineEffectiveness:
         '''
             Description.
         '''
-        aux.fit_dose(self.fsurvival, self.km_objects, self.sub_data, self.event, t_min)
-        aux.fit_sex(self.fsurvival, self.km_objects, self.sub_data, "M", self.event, t_min)
-        aux.fit_sex(self.fsurvival, self.km_objects, self.sub_data, "F", self.event, t_min)
-        aux.fit_age(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (60,69), self.event, t_min)
-        aux.fit_age(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (70,79), self.event, t_min)
-        aux.fit_age(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (80,200), self.event, t_min)
+        aux.fit_dose_v2(self.fsurvival, self.km_objects, self.sub_data, self.event, t_min)
+        aux.fit_sex_v2(self.fsurvival, self.km_objects, self.sub_data, "M", self.event, t_min)
+        aux.fit_sex_v2(self.fsurvival, self.km_objects, self.sub_data, "F", self.event, t_min)
+        aux.fit_age_v2(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (60,69), self.event, t_min)
+        aux.fit_age_v2(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (70,79), self.event, t_min)
+        aux.fit_age_v2(self.fsurvival, self.pairs_hash, self.km_objects, self.sub_data, (80,200), self.event, t_min)
 
-    def bootstrap_ve(self, survival_folder, n_resampling, seed, hdi=True, t_min=0):
+    def bootstrap_ve(self, survival_folder, n_resampling, seed, hdi=True):
         '''
             Calculate the vaccine effectiveness using the Kaplan-Meier estimate and the confidence intervals
             using the percentile bootstrap method.
@@ -117,22 +110,22 @@ class VaccineEffectiveness:
 
                 seed:
         '''
-        fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}.parquet")
+        fname_survival = os.path.join(survival_folder, f"SURVIVAL_{self.dose}_{self.event}_DAY{self.days_after}_{seed}.parquet")
         fsurvival = pd.read_parquet(fname_survival)
         fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
 
         caso = fsurvival[fsurvival["TIPO"]=="CASO"]
         controle = fsurvival[fsurvival["TIPO"]=="CONTROLE"]
 
+        print(caso.shape, fsurvival.shape, self.pairs_df.shape)
+
         # Perform bootstrapping sampling 'n_resampling' times. 
         # For each bootstrapping sample, calculate 1 - RR for each time step and measure the confidence intervals.
         self.bootstrap_results = {
-            "D1": [], "D2": [], "D1_MALE": [], "D2_MALE": [],
-            "D1_FEMALE": [], "D2_FEMALE": [], "D1_6069": [], "D2_6069": [],
-            "D1_7079": [], "D2_7079": [], "D1_80+": [], "D2_80+": [], 
-            "D1_HDI_000_059": [], "D1_HDI_060_1": [], "D2_HDI_000_059": [], 
-            "D2_HDI_060_1": [], "D1_HDI_000_050": [], "D2_HDI_000_050": [],
-            "D1_HDI_050_1": [], "D2_HDI_050_1": [],
+            "DOSE": [], "MALE": [], "FEMALE": [], 
+            "6069": [], "7079": [], "80+": [], 
+            "HDI_000_059": [], "HDI_060_1": [],
+            "HDI_000_050": [], "HDI_050_1": [],
         }
         
         for ns in tqdm(range(n_resampling)):
@@ -145,15 +138,15 @@ class VaccineEffectiveness:
 
             km_objects, subdata = aux.create_km_objects()
             # Fit data
-            aux.fit_dose(r_fsurvival, km_objects, subdata, self.event, t_min)
-            aux.fit_sex(r_fsurvival, km_objects, subdata, "M", self.event, t_min)
-            aux.fit_sex(r_fsurvival, km_objects, subdata, "F", self.event, t_min)
-            aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event, t_min)
-            aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event, t_min)
-            aux.fit_age(r_fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event, t_min)
+            aux.fit_dose_v2(r_fsurvival, km_objects, subdata, self.event)
+            aux.fit_sex_v2(r_fsurvival, km_objects, subdata, "M", self.event)
+            aux.fit_sex_v2(r_fsurvival, km_objects, subdata, "F", self.event)
+            aux.fit_age_v2(r_fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event)
+            aux.fit_age_v2(r_fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event)
+            aux.fit_age_v2(r_fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event)
             if hdi:
-                aux.fit_hdi(r_fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.0,0.5,1.0])
-                aux.fit_hdi(r_fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.0,0.590,1.0])
+                aux.fit_hdi_v2(r_fsurvival, km_objects, subdata, self.event, hdi_strat=[0.0,0.5,1.0])
+                aux.fit_hdi_v2(r_fsurvival, km_objects, subdata, self.event, hdi_strat=[0.0,0.590,1.0])
 
             # --> Calculate VE for each case
             ev_table = aux.generate_table(km_objects)
@@ -230,66 +223,46 @@ class VaccineEffectiveness:
             self.cumul_figures[key][1].set_title(key)
             #self.cumul_figures[key][1].savefig(os.path.join(folder, f"{key}_{t_min}.pdf"), dpi=120)
 
-    def generate_output(self, seed_folder, t_min):
+    def generate_output(self, seed_folder):
         '''
         
         '''
-        with pd.ExcelWriter(os.path.join(seed_folder, f"VE_{t_min}_{self.event}.xlsx")) as writer:
-            self.bootstrap_results["D1"].to_excel(writer, sheet_name=f"D1")
-            self.bootstrap_results["D2"].to_excel(writer, sheet_name=f"D2")
-            self.bootstrap_results["D1_MALE"].to_excel(writer, sheet_name=f"D1_MALE")
-            self.bootstrap_results["D2_MALE"].to_excel(writer, sheet_name=f"D2_MALE")
-            self.bootstrap_results["D1_FEMALE"].to_excel(writer, sheet_name=f"D1_FEMALE")
-            self.bootstrap_results["D2_FEMALE"].to_excel(writer, sheet_name=f"D2_FEMALE")
-            self.bootstrap_results["D1_6069"].to_excel(writer, sheet_name=f"D1_6069")
-            self.bootstrap_results["D2_6069"].to_excel(writer, sheet_name=f"D2_6069")
-            self.bootstrap_results["D1_7079"].to_excel(writer, sheet_name=f"D1_7079")
-            self.bootstrap_results["D2_7079"].to_excel(writer, sheet_name=f"D2_7079")
-            self.bootstrap_results["D1_80+"].to_excel(writer, sheet_name=f"D1_80+")
-            self.bootstrap_results["D2_80+"].to_excel(writer, sheet_name=f"D2_80+")
-            if self.bootstrap_results["D1_HDI_000_059"] is not None:
-                self.bootstrap_results["D1_HDI_000_059"].to_excel(writer, sheet_name=f"D1_HDI_000_059")
-                self.bootstrap_results["D2_HDI_000_059"].to_excel(writer, sheet_name=f"D2_HDI_000_059")
-                self.bootstrap_results["D1_HDI_060_1"].to_excel(writer, sheet_name=f"D1_HDI_060_1")
-                self.bootstrap_results["D2_HDI_060_1"].to_excel(writer, sheet_name=f"D2_HDI_060_1")
-            if self.bootstrap_results["D1_HDI_000_050"] is not None:
-                self.bootstrap_results["D1_HDI_000_050"].to_excel(writer, sheet_name=f"D1_HDI_000_050")
-                self.bootstrap_results["D2_HDI_000_050"].to_excel(writer, sheet_name=f"D2_HDI_000_050")
-                self.bootstrap_results["D1_HDI_050_1"].to_excel(writer, sheet_name=f"D1_HDI_050_1")
-                self.bootstrap_results["D2_HDI_050_1"].to_excel(writer, sheet_name=f"D2_HDI_050_1")
-        with pd.ExcelWriter(os.path.join(seed_folder, f"KM_events_{t_min}_{self.event}.xlsx")) as writer:
-            self.etables["D1"].to_excel(writer, sheet_name=f"KM_D1")
-            self.etables["D2"].to_excel(writer, sheet_name=f"KM_D2")
-            self.etables["D1_MALE"].to_excel(writer, sheet_name=f"KM_D1_MALE")
-            self.etables["D2_MALE"].to_excel(writer, sheet_name=f"KM_D2_MALE")
-            self.etables["D1_FEMALE"].to_excel(writer, sheet_name=f"KM_D1_FEMALE")
-            self.etables["D2_FEMALE"].to_excel(writer, sheet_name=f"KM_D2_FEMALE")
-            self.etables["D1_6069"].to_excel(writer, sheet_name=f"KM_D1_6069")
-            self.etables["D2_6069"].to_excel(writer, sheet_name=f"KM_D2_6069")
-            self.etables["D1_7079"].to_excel(writer, sheet_name=f"KM_D1_7079")
-            self.etables["D2_7079"].to_excel(writer, sheet_name=f"KM_D2_7079")
-            self.etables["D1_80+"].to_excel(writer, sheet_name=f"KM_D1_80+")
-            self.etables["D2_80+"].to_excel(writer, sheet_name=f"KM_D2_80+")
-            if self.etables["D1_HDI_000_059"] is not None:
-                self.etables["D1_HDI_000_059"].to_excel(writer, sheet_name=f"D1_HDI_000_059")
-                self.etables["D2_HDI_000_059"].to_excel(writer, sheet_name=f"D2_HDI_000_059")
-                self.etables["D1_HDI_060_1"].to_excel(writer, sheet_name=f"D1_HDI_060_1")
-                self.etables["D2_HDI_060_1"].to_excel(writer, sheet_name=f"D2_HDI_060_1")
-            if self.etables["D1_HDI_000_050"] is not None:
-                self.etables["D1_HDI_000_050"].to_excel(writer, sheet_name=f"D1_HDI_000_050")
-                self.etables["D2_HDI_000_050"].to_excel(writer, sheet_name=f"D2_HDI_000_050")
-                self.etables["D1_HDI_050_1"].to_excel(writer, sheet_name=f"D1_HDI_050_1")
-                self.etables["D2_HDI_050_1"].to_excel(writer, sheet_name=f"D2_HDI_050_1")
+        with pd.ExcelWriter(os.path.join(seed_folder, f"VE_{self.dose}_{self.event}_DAY{self.days_after}.xlsx")) as writer:
+            self.bootstrap_results["DOSE"].to_excel(writer, sheet_name=f"DOSE")
+            self.bootstrap_results["MALE"].to_excel(writer, sheet_name=f"MALE")
+            self.bootstrap_results["FEMALE"].to_excel(writer, sheet_name=f"FEMALE")
+            self.bootstrap_results["6069"].to_excel(writer, sheet_name=f"6069")
+            self.bootstrap_results["7079"].to_excel(writer, sheet_name=f"7079")
+            self.bootstrap_results["80+"].to_excel(writer, sheet_name=f"80+")
+            if self.bootstrap_results["HDI_000_059"] is not None:
+                self.bootstrap_results["HDI_000_059"].to_excel(writer, sheet_name=f"HDI_000_059")
+                self.bootstrap_results["HDI_060_1"].to_excel(writer, sheet_name=f"HDI_060_1")
+            if self.bootstrap_results["HDI_000_050"] is not None:
+                self.bootstrap_results["HDI_000_050"].to_excel(writer, sheet_name=f"HDI_000_050")
+                self.bootstrap_results["HDI_050_1"].to_excel(writer, sheet_name=f"HDI_050_1")
+        with pd.ExcelWriter(os.path.join(seed_folder, f"KM_events_{self.dose}_{self.event}_DAY{self.days_after}.xlsx")) as writer:
+            self.etables["DOSE"].to_excel(writer, sheet_name=f"KM_DOSE")
+            self.etables["MALE"].to_excel(writer, sheet_name=f"KM_MALE")
+            self.etables["FEMALE"].to_excel(writer, sheet_name=f"KM_FEMALE")
+            self.etables["6069"].to_excel(writer, sheet_name=f"KM_6069")
+            self.etables["7079"].to_excel(writer, sheet_name=f"KM_7079")
+            self.etables["80+"].to_excel(writer, sheet_name=f"KM_80+")
+            if self.etables["HDI_000_059"] is not None:
+                self.etables["HDI_000_059"].to_excel(writer, sheet_name=f"HDI_000_059")
+                self.etables["HDI_060_1"].to_excel(writer, sheet_name=f"HDI_060_1")
+            if self.etables["HDI_000_050"] is not None:
+                self.etables["HDI_000_050"].to_excel(writer, sheet_name=f"HDI_000_050")
+                self.etables["HDI_050_1"].to_excel(writer, sheet_name=f"HDI_050_1")
         
         # curves
         for key in self.cumul_figures.keys():
-            self.cumul_figures[key][0].savefig(os.path.join(seed_folder, "FIGS", f"{key}_{t_min}.pdf"))
+            self.cumul_figures[key][0].savefig(os.path.join(seed_folder, "FIGS", f"{key}_DAY{self.days_after}.pdf"))
 
     def km_curves(self, survival_folder, seed, hdi=True, t_min=0):
         '''
         
         '''
-        fname_survival = os.path.join(survival_folder, f"SURVIVAL_CORONAVAC_D1D2_{self.event}_{seed}.parquet")
+        fname_survival = os.path.join(survival_folder, f"SURVIVAL_{self.dose}_{self.event}_DAY{self.days_after}_{seed}.parquet")
         fsurvival = pd.read_parquet(fname_survival)
         fsurvival = fsurvival.merge(self.fschema[["CPF", "BAIRRO", "IDADE", "SEXO", f"IDH2010"]], on="CPF", how="left")
 
@@ -298,21 +271,21 @@ class VaccineEffectiveness:
 
         km_objects, subdata = aux.create_km_objects()
         # Fit data
-        aux.fit_dose(fsurvival, km_objects, subdata, self.event, t_min)
-        aux.fit_sex(fsurvival, km_objects, subdata, "M", self.event, t_min)
-        aux.fit_sex(fsurvival, km_objects, subdata, "F", self.event, t_min)
-        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event, t_min)
-        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event, t_min)
-        aux.fit_age(fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event, t_min)
+        aux.fit_dose_v2(fsurvival, km_objects, subdata, self.event)
+        aux.fit_sex_v2(fsurvival, km_objects, subdata, "M", self.event)
+        aux.fit_sex_v2(fsurvival, km_objects, subdata, "F", self.event)
+        aux.fit_age_v2(fsurvival, self.pairs_hash, km_objects, subdata, (60,69), self.event)
+        aux.fit_age_v2(fsurvival, self.pairs_hash, km_objects, subdata, (70,79), self.event)
+        aux.fit_age_v2(fsurvival, self.pairs_hash, km_objects, subdata, (80,200), self.event)
         if hdi:
-            aux.fit_hdi(fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.00,0.50,1.00])
-            aux.fit_hdi(fsurvival, km_objects, subdata, self.event, t_min, hdi_strat=[0.00,0.59,1.00])
+            aux.fit_hdi_v2(fsurvival, km_objects, subdata, self.event, hdi_strat=[0.00,0.50,1.00])
+            aux.fit_hdi_v2(fsurvival, km_objects, subdata, self.event, hdi_strat=[0.00,0.59,1.00])
 
         # --> Calculate VE for each case
         ev_table = aux.generate_table(km_objects)
         for key in ev_table.keys():
             self.etables[key] = ev_table[key]
-            self.bootstrap_results[key]["VE"] = 1 - (ev_table[key]["KM(caso)"]/ev_table[key]["KM(controle)"])
+            self.bootstrap_results[key]["VE_original"] = 1 - (ev_table[key]["KM(caso)"]/ev_table[key]["KM(controle)"])
 
         # --> Generate the Kaplan-Meier curves
         self.generate_curves(km_objects)
