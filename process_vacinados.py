@@ -11,7 +11,7 @@ config = {
     'colnames': ["usuario", "cpf_usuario", "data_nascimento", "data_aplicacao_ajustada", "vacina", 
                  "dose", "fornecedor", "idade_anos", "fx_etaria2", "sexo", "grupo_atendimento", 
                  "grupodeatendimento_old", "id_bairro", "bairro_ajustado", "municipio_residencia", 
-                 "tipo_atendimento", "tipo_usuario", "grupoprioritario_novo"],
+                 "tipo_atendimento", "tipo_usuario", "grupoprioritario_novo", "endereco"],
     'output': "vacinas_update_20jan2022.csv"
 }
  
@@ -25,7 +25,7 @@ info_template = {
     "fornecedor": np.nan, "fornecedor(D1)": np.nan, "fornecedor(D2)": np.nan,
     "fornecedor(D3)": np.nan, "fornecedor(D4)": np.nan, "idade anos": None, "faixa etaria": None, 
     "bairro": None, "bairro id": None, "tipo atendimento": "", 
-    "tipo usuario": "", "grupo prioritario": "", "grupo atendimento": ""
+    "tipo usuario": "", "grupo prioritario": "", "grupo atendimento": "", "endereco": None,
 }
 
 cpf_info = defaultdict(lambda: np.nan)
@@ -55,6 +55,7 @@ for chunk in tqdm(data_iterator):
             cpf_info[cpf]['grupo prioritario'] += chunk["grupoprioritario_novo"].iat[j]
             cpf_info[cpf]['tipo atendimento'] += chunk["tipo_atendimento"].iat[j]
             cpf_info[cpf]["tipo usuario"] += chunk["tipo_usuario"].iat[j]
+            cpf_info[cpf]["endereco"] += chunk["endereco"].iat[j] # new and untested
 
             cpf_info[cpf][f"data {dose_str}"] = chunk["data_aplicacao_ajustada"].iat[j]
             cpf_info[cpf][f"vacina({dose_str})"] = chunk["vacina"].iat[j]
