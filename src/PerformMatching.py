@@ -4,6 +4,7 @@
 import os
 import pandas as pd
 import lib.utils as utils
+from datetime import timedelta
 import lib.matching_aux as aux
 from collections import defaultdict
 
@@ -22,6 +23,8 @@ class PerformMatching:
                     during matching for the vaccinated. 
                 hdi_index:
                     Integer.
+                days_after:
+                    Integer. 
                 cohort:
                     2-Tuple of datetime.datetime. Define beginning and ending of 
                     the cohort.
@@ -105,7 +108,7 @@ class PerformMatching:
         matching_vars = df_pop.groupby(f'MATCHING {self.hdi_index}')
         self.control_reservoir = defaultdict(lambda: [], matching_vars.groups) # EX: x[(67,'M',3)] = [ list of cpfs having these variables ]
 
-        # --> According to the given seed shuffle the potential controls.
+        # --> Shuffle the potential controls according to the given seed .
         aux.rearrange_controls(self.control_reservoir, seed)
         # --> Perform matching based on the variables defined for matching (age, sex, HDI) 
         self.pareados, self.matched = aux.perform_matching1(self.cohort, df_vac, self.control_reservoir, self.control_used, self.person_dates, self.hdi_index, date_str, self.days_after)
@@ -222,7 +225,7 @@ class PerformMatching:
         self.pareados = None
         self.events_df = None
 
-    def generate_survival_info_v2(self, output_folder, date_str="DATA D1", seed=1):
+    def generate_survival_info_v2(self, output_folder, date_str="DATA D1", seed=1, delay_vaccine=0):
         '''
             After the case-control pairs are defined and their event dates are obtained, 
             calculate the size of the survival intervals for each pair. The calculation is
@@ -231,6 +234,10 @@ class PerformMatching:
             Args:
                 output_folder:
                     String. 
+                delay_vaccine:
+                    Integer. {default: None}. Parameter for sensitivy analysis. It increases the
+                    date of receipt of the first dose of all controls individuals by the number 
+                    of days given by this parameter.
                 seed:
                     Integer.
             Return:
@@ -249,6 +256,11 @@ class PerformMatching:
         # --> Reduce hospitalization and ICU dates to only one (the first date in the cohort period)
         self.events_df["DATA HOSPITALIZACAO"] = self.events_df["DATA HOSPITALIZACAO"].apply(lambda x: aux.new_hospitalization_date(x, self.cohort))
         self.events_df["DATA UTI"] = self.events_df["DATA UTI"].apply(lambda x: aux.new_hospitalization_date(x, self.cohort))
+
+        if delay_vaccine>0:
+            temp_f = lambda x: x["DATA D1"]+timedelta(days=delay_vaccine) if pd.notna(x["DATA D1"]) and x["TIPO"]=="CONTROLE" else x["DATA D1"]
+            self.events_df["DATA D1"] = self.events_df[["DATA D1", "TIPO"]].apply(temp_f, axis=1)
+
         
         events_col = {
             "D1": "DATA D1",

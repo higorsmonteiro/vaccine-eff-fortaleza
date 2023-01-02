@@ -21,7 +21,8 @@ parser.add_argument("--events", type=str, default="ALL", help=r'''Whether to run
 parser.add_argument("--bootstrap_n", type=int, default=10, help=r'''Number of simulations to perform during the percentile bootstrap 
                                                                     for confidence intervals of the vaccine effectiveness.''')
 parser.add_argument("--dose", type=str, nargs="+", help=r'''Dose to consider when performing the calculation ('D1' or 'D2')''')
-parser.add_argument("--days_after", type=int, default=0, help=r'''Number of days from day zero of an individual's cohort to consider when doing the matching''')
+parser.add_argument("--days_after", type=int, default=0, help=r'''Number of days from day zero of an individual's cohort to consider when doing the matching.''')
+#parser.add_argument("--delay_vaccine", type=int, default=0, help=r'''Number of days extra for censoring a pair due to vaccination of the control individual.''')
 args = parser.parse_args()
 
 # --> Config
@@ -36,6 +37,7 @@ events = args.events
 bootstrap_n = args.bootstrap_n
 dose = ' '.join(args.dose)
 days_after = args.days_after
+#delay_vaccine = args.delay_vaccine
 
 # --> Set up
 init_str = f"{init_cohort.day}{init_cohort.strftime('%b').upper()}{init_cohort.year}"

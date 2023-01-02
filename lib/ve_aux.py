@@ -1,28 +1,6 @@
 import pandas as pd
 from lifelines import KaplanMeierFitter
 
-def fit_dose(df_survival, km_objects, sub_data, event, t_min=0):
-    '''
-    
-    '''
-    # --> D1
-    dff = df_survival[ (df_survival["TIPO"]=="CASO")  &  (df_survival[f"t - D1 {event}"]>=t_min) ]
-    km_objects["D1"]["CASO"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CASO")
-    sub_data["D1"]["CASO"] = dff[["CPF"]].copy()
-
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE")  &  (df_survival[f"t - D1 {event}"]>=t_min) ]
-    km_objects["D1"]["CONTROLE"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CONTROLE")
-    sub_data["D1"]["CONTROLE"] = dff[["CPF"]].copy()
-    
-    # --> D2
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D2 {event}"]>=t_min) ]
-    km_objects["D2"]["CASO"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CASO")
-    sub_data["D2"]["CASO"] = dff[["CPF"]].copy()
-    
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) ]
-    km_objects["D2"]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
-    sub_data["D2"]["CONTROLE"] = dff[["CPF"]].copy()
-
 def fit_dose_v2(df_survival, km_objects, sub_data, event):
     '''
     
@@ -34,39 +12,6 @@ def fit_dose_v2(df_survival, km_objects, sub_data, event):
     dff = df_survival[ (df_survival["TIPO"]=="CONTROLE")  &  (df_survival[f"t - {event}"]>=0) ]
     km_objects["DOSE"]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
     sub_data["DOSE"]["CONTROLE"] = dff[["CPF"]].copy()
-
-def fit_sex(df_survival, km_objects, sub_data, sex, event, t_min=0):
-    '''
-    
-    '''
-    if sex=="M":
-        fstring1 = "D1_MALE"
-        fstring2 = "D2_MALE"
-    else:
-        fstring1 = "D1_FEMALE"
-        fstring2 = "D2_FEMALE"
-    
-    # --> D1 MALE
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D1 {event}"]>=t_min) & (df_survival["SEXO"]==sex) ]
-    km_objects[fstring1]["CASO"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CASO")
-    sub_data[fstring1]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D1 {event}"]>=t_min) & (df_survival["SEXO"]==sex) ]
-    km_objects[fstring1]["CONTROLE"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CONTROLE")
-    sub_data[fstring1]["CONTROLE"] = dff[["CPF"]].copy()
-    
-    # --> D2 MALE
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D2 {event}"]>=t_min) & (df_survival["SEXO"]==sex) ]
-    km_objects[fstring2]["CASO"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CASO")
-    sub_data[fstring2]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) & (df_survival["SEXO"]==sex) ]
-    km_objects[fstring2]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
-    sub_data[fstring2]["CONTROLE"] = dff[["CPF"]].copy()
 
 def fit_sex_v2(df_survival, km_objects, sub_data, sex, event):
     '''
@@ -84,46 +29,6 @@ def fit_sex_v2(df_survival, km_objects, sub_data, sex, event):
     dff = df_survival[ (df_survival["TIPO"]=="CONTROLE")  &  (df_survival[f"t - {event}"]>=0) & (df_survival["SEXO"]==sex) ]
     km_objects[fstring]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
     sub_data[fstring]["CONTROLE"] = dff[["CPF"]].copy()
-
-    
-
-def fit_age(df_survival, pairs_hash, km_objects, sub_data, age, event, t_min):
-    '''
-    
-    '''
-    # Select subset of individuals for the given age range
-    casos_cpf = df_survival[(df_survival["TIPO"]=="CASO") & (df_survival["IDADE"]>=age[0]) & (df_survival["IDADE"]<=age[1])]["CPF"].tolist()
-    controles_cpf = [ pairs_hash[cpf] for cpf in casos_cpf ]
-    df_survival = df_survival[df_survival["CPF"].isin(casos_cpf+controles_cpf)]
-
-    # Perform fitting
-    # --> D1
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D1 {event}"]>=t_min) ]
-    string = f"D1_{age[0]}{age[1]}"
-    if age[0]==80:
-        string = "D1_80+"
-    # ----> D1 CASO
-    km_objects[string]["CASO"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CASO")
-    sub_data[string]["CASO"] = dff[["CPF"]].copy()
-    
-    # ----> D1 CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D1 {event}"]>=t_min) ]
-    km_objects[string]["CONTROLE"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CONTROLE")
-    sub_data[string]["CONTROLE"] = dff[["CPF"]].copy()
-    
-    # --> D2
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D2 {event}"]>=t_min) ]
-    string = f"D2_{age[0]}{age[1]}"
-    if age[0]==80:
-        string = "D2_80+"
-    # ----> D2 CASO
-    km_objects[string]["CASO"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CASO")
-    sub_data[string]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> D2 CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) ]
-    km_objects[string]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
-    sub_data[string]["CONTROLE"] = dff[["CPF"]].copy()
 
 def fit_age_v2(df_survival, pairs_hash, km_objects, sub_data, age, event):
     '''
@@ -147,74 +52,6 @@ def fit_age_v2(df_survival, pairs_hash, km_objects, sub_data, age, event):
     dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - {event}"]>=0) ]
     km_objects[string]["CONTROLE"].fit(dff[f"t - {event}"], event_observed=dff[f"E - {event}"], label="CONTROLE")
     sub_data[string]["CONTROLE"] = dff[["CPF"]].copy()
-
-def fit_hdi(df_survival, km_objects, sub_data, event, t_min, hdi_strat=[0.000,0.500,1.000]):
-    '''
-
-    '''
-    hdi_condition_1 = (df_survival[f"IDH2010"]>=hdi_strat[0]) & (df_survival[f"IDH2010"]<=hdi_strat[1])
-    hdi_condition_2 = (df_survival[f"IDH2010"]>hdi_strat[1]) & (df_survival[f"IDH2010"]<=hdi_strat[2])
-
-    d1_str_lower = "D1_HDI_000_050"
-    d1_str_upper = "D1_HDI_050_1"
-    d2_str_lower = "D2_HDI_000_050"
-    d2_str_upper = "D2_HDI_050_1"
-    if hdi_strat[1]==0.59:
-        d1_str_lower = "D1_HDI_000_059"
-        d1_str_upper = "D1_HDI_060_1"
-        d2_str_lower = "D2_HDI_000_059"
-        d2_str_upper = "D2_HDI_060_1"
-    # --> D1 
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D1 {event}"]>=t_min) & hdi_condition_1 ]
-    if dff.shape[0]!=0:
-        km_objects[d1_str_lower]["CASO"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CASO")
-        sub_data[d1_str_lower]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D1 {event}"]>=t_min) & hdi_condition_1 ]
-    if dff.shape[0]!=0:
-        km_objects[d1_str_lower]["CONTROLE"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CONTROLE")
-        sub_data[d1_str_lower]["CONTROLE"] = dff[["CPF"]].copy()
-
-    # --> D2
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D2 {event}"]>=t_min) & hdi_condition_1 ]
-    if dff.shape[0]!=0:
-        km_objects[d2_str_lower]["CASO"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CASO")
-        sub_data[d2_str_lower]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) & hdi_condition_1 ]
-    if dff.shape[0]!=0:
-        km_objects[d2_str_lower]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
-        sub_data[d2_str_lower]["CONTROLE"] = dff[["CPF"]].copy()
-    
-    # --> D2 MALE
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D1 {event}"]>=t_min) & hdi_condition_2 ]
-    if dff.shape[0]!=0:
-        km_objects[d1_str_upper]["CASO"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CASO")
-        sub_data[d1_str_upper]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D1 {event}"]>=t_min) & hdi_condition_2 ]
-    if dff.shape[0]!=0:
-        km_objects[d1_str_upper]["CONTROLE"].fit(dff[f"t - D1 {event}"], event_observed=dff[f"E - D1 {event}"], label="CONTROLE")
-        sub_data[d1_str_upper]["CONTROLE"] = dff[["CPF"]].copy()
-    
-    # --> D2 MALE
-    # ----> CASO
-    dff = df_survival[ (df_survival["TIPO"]=="CASO") & (df_survival[f"t - D2 {event}"]>=t_min) & hdi_condition_2 ]
-    if dff.shape[0]!=0:
-        km_objects[d2_str_upper]["CASO"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CASO")
-        sub_data[d2_str_upper]["CASO"] = dff[["CPF"]].copy()
-
-    # ----> CONTROLE
-    dff = df_survival[ (df_survival["TIPO"]=="CONTROLE") & (df_survival[f"t - D2 {event}"]>=t_min) & hdi_condition_2 ]
-    if dff.shape[0]!=0:
-        km_objects[d2_str_upper]["CONTROLE"].fit(dff[f"t - D2 {event}"], event_observed=dff[f"E - D2 {event}"], label="CONTROLE")
-        sub_data[d2_str_upper]["CONTROLE"] = dff[["CPF"]].copy()
 
 def fit_hdi_v2(df_survival, km_objects, sub_data, event, hdi_strat=[0.000,0.500,1.000]):
     '''
